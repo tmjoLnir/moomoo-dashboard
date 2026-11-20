@@ -1,0 +1,103 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Top 5 Buy Potential</title>
+  <meta name="description" content="Top 5 US stocks ranked by a transparent blended buy-potential score, refreshed automatically.">
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><polyline points='3,24 11,15 17,19 29,6' fill='none' stroke='%23e0485a' stroke-width='4' stroke-linecap='round' stroke-linejoin='round'/></svg>">
+  <link rel="stylesheet" href="assets/style.css">
+</head>
+<body>
+  <header class="top">
+    <div class="wrap top-inner">
+      <div>
+        <h1>Top 5 US stocks by buy potential</h1>
+        <p class="meta" id="meta">Loading…</p>
+      </div>
+      <div class="actions">
+        <button id="reload" type="button" title="Fetch the latest published data">Reload data</button>
+        <a id="run-refresh" class="btn-ghost" target="_blank" rel="noopener" title="Opens GitHub Actions: click 'Run workflow' to recompute now">Recompute ranking ↗</a>
+      </div>
+    </div>
+  </header>
+
+  <main class="wrap">
+    <div id="banner" class="banner" hidden></div>
+
+    <section aria-label="Ranking summary">
+      <ol id="ranking" class="ranking"></ol>
+    </section>
+
+    <section id="stocks" aria-label="Charts"></section>
+
+    <section class="panel" aria-labelledby="logic-h">
+      <h2 id="logic-h">How the score works</h2>
+      <p id="logic-summary"></p>
+      <table class="logic">
+        <thead><tr><th>Component</th><th class="num">Weight</th><th>Rule</th></tr></thead>
+        <tbody id="logic-rows"></tbody>
+      </table>
+      <h3>Filters (a stock must pass all)</h3>
+      <ul id="logic-filters"></ul>
+      <p class="muted" id="logic-pipeline"></p>
+      <p class="caveat" id="logic-caveat"></p>
+    </section>
+
+    <section class="panel" aria-labelledby="ru-h">
+      <h2 id="ru-h">Runners-up</h2>
+      <table class="runners">
+        <thead><tr><th>#</th><th>Ticker</th><th>Name</th><th class="num">Score</th><th class="num">Analyst upside</th></tr></thead>
+        <tbody id="runners"></tbody>
+      </table>
+    </section>
+  </main>
+
+  <footer class="wrap foot">
+    <p>Not investment advice. Data can be delayed or wrong; verify in your broker before trading.</p>
+    <p>Charts by <a href="https://www.tradingview.com/" target="_blank" rel="noopener">TradingView Lightweight Charts™</a>. Hosted free on GitHub Pages.</p>
+  </footer>
+
+  <template id="stock-tpl">
+    <article class="panel stock">
+      <div class="stock-head">
+        <div class="id">
+          <span class="rank"></span>
+          <div>
+            <h2 class="ticker"></h2>
+            <p class="name muted"></p>
+          </div>
+        </div>
+        <div class="px">
+          <span class="price"></span>
+          <span class="chg"></span>
+        </div>
+        <div class="score-badge" title="Blended buy-potential score (0-100)"><span class="score"></span><small>/100</small></div>
+      </div>
+
+      <div class="stock-body">
+        <div class="chart-col">
+          <div class="chart-box">
+            <div class="legend"></div>
+            <div class="chart"></div>
+          </div>
+          <div class="vol-legend"><span class="vl-a">VOL</span> <span class="vl-v"></span> <span class="vl-ma"></span></div>
+          <div class="toolbar">
+            <div class="ranges" role="tablist" aria-label="Time range"></div>
+            <button type="button" class="ctype" title="Switch line / candles">Candles</button>
+          </div>
+        </div>
+
+        <div class="side">
+          <h3>Score breakdown</h3>
+          <ul class="parts"></ul>
+          <dl class="stats"></dl>
+        </div>
+      </div>
+    </article>
+  </template>
+
+  <script src="assets/vendor/lightweight-charts.standalone.production.js"></script>
+  <script src="assets/app.js"></script>
+</body>
+</html>
