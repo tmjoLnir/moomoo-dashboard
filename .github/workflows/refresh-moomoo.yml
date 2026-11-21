@@ -1,0 +1,38 @@
+name: Refresh moomoo data (self-hosted)
+
+# Runs ONLY on your own PC (self-hosted runner + moomoo OpenD).
+# It never deploys. It publishes dashboard.json to the `moomoo-data` branch, and the
+# "Refresh data & deploy" workflow picks it up while it is fresh (see use_moomoo_data.py).
+#
+# Why a separate workflow: if your PC is off, this job just waits in the queue.
+# Living in its own workflow and concurrency group, a stuck job here can never hold
+# up the site's deploys; the deploy workflow falls back to Yahoo instead.
+on:
+  schedule:
+    - cron: "5,35 13-21 * * 1-5"   # US session; each success triggers a deploy (workflow_run)
+  workflow_dispatch:
+
+permissions:
+  contents: write   # to push the moomoo-data branch
+
+concurrency:
+  group: moomoo-refresh
+  cancel-in-progress: true   # a newer run replaces a stale queued one (e.g. PC was off)
+
+jobs:
+  refresh:
+    # Scheduled runs only when you've opted in, so nothing queues before a runner exists.
+    if: vars.DATA_PROVIDER == 'moomoo' || github.event_name == 'workflow_dispatch'
+    runs-on: self-hosted
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install dependencies (your PC's Python 3.10-3.12)
+        run: python -m pip install -r requirements.txt -r requirements-moomoo.txt
+
+      - name: Recompute ranking from moomoo OpenAPI
+        run: python scripts/refresh.py --provider moomoo --out moomoo-out/dashboard.json
+
+      - name: Publish to the moomoo-data branch
+        run: python scripts/publish_data_branch.py moomoo-out/dashboard.json moomoo-data

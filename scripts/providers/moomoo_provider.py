@@ -18,7 +18,7 @@ import time
 
 import pandas as pd
 
-from scoring import MIN_MARKET_CAP, MIN_PRICE, consensus_from_counts
+from scoring import MIN_MARKET_CAP, MIN_PRICE, normalize_consensus
 
 HOST = os.environ.get("MOOMOO_OPEND_HOST", "127.0.0.1")
 PORT = int(os.environ.get("MOOMOO_OPEND_PORT", "11111"))
@@ -90,12 +90,9 @@ class MoomooProvider:
                 print(f"  ! consensus {r['ticker']}: {e}")
                 continue
             c = c if isinstance(c, dict) else {}
-            con, n = consensus_from_counts(c.get("strong_buy"), c.get("buy"), c.get("hold"),
-                                           c.get("underperform"), c.get("sell"))
+            con, n, breakdown = normalize_consensus(c)
             r.update(target_mean=c.get("average"), target_high=c.get("highest"), target_low=c.get("lowest"),
-                     analysts=n or c.get("total") or 0, consensus01=con,
-                     rating_label=c.get("rating"),
-                     breakdown={k: c.get(k, 0) for k in ("strong_buy", "buy", "hold", "underperform", "sell")})
+                     analysts=n, consensus01=con, rating_label=c.get("rating"), breakdown=breakdown)
             time.sleep(0.4)
         return rows
 

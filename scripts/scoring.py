@@ -133,3 +133,24 @@ def consensus_from_counts(strong_buy=0, buy=0, hold=0, underperform=0, sell=0) -
         return 0.0, 0
     mean = (5 * (strong_buy or 0) + 4 * (buy or 0) + 3 * (hold or 0) + 2 * (underperform or 0) + (sell or 0)) / n
     return (mean - 1) / 4, n
+
+
+def normalize_consensus(c: dict) -> tuple[float, int, dict]:
+    """moomoo analyst consensus (SDK or MCP) -> (0..1 score, analyst count, breakdown in analyst counts).
+
+    moomoo may report the strong_buy/buy/hold/underperform/sell mix as *percentages*
+    (e.g. strong_buy=100 with total=14), so the analyst count comes from `total`,
+    and percentages are converted back to approximate counts for display.
+    """
+    keys = ("strong_buy", "buy", "hold", "underperform", "sell")
+    mix = {k: float(c.get(k) or 0) for k in keys}
+    con, n_from_mix = consensus_from_counts(**mix)
+    total = int(c.get("total") or c.get("num_of_target_analysts") or 0)
+    if not n_from_mix and c.get("rating"):           # no mix at all: fall back to the 1-5 rating
+        con = (float(c["rating"]) - 1) / 4
+    looks_pct = total and abs(sum(mix.values()) - 100) < 1.5 and sum(mix.values()) != total
+    if looks_pct:
+        breakdown = {k: round(v / 100 * total) for k, v in mix.items()}
+    else:
+        breakdown = {k: int(v) for k, v in mix.items()}
+    return con, (total or int(n_from_mix)), breakdown

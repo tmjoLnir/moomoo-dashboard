@@ -5,7 +5,7 @@ Free, self-refreshing dashboard on GitHub Pages showing moomoo-style charts of t
 RSI setup + volume accumulation). The scoring rules are printed on the page.
 
 - Live site (after setup): https://tmjolnir.github.io/moomoo-dashboard/
-- Data: moomoo OpenAPI via OpenD on a self-hosted runner, with Yahoo Finance as a free fallback
+- Data: moomoo OpenAPI via OpenD on your PC (self-hosted runner, separate workflow), with Yahoo Finance as an automatic fallback whenever the moomoo ranking is over 45 min old
 - Step-by-step build & deploy walkthrough: **[GUIDE.md](GUIDE.md)**
 
 ```bash
