@@ -37,7 +37,8 @@ MIN_BARS = 260
 
 # ---- Stage 4 ------------------------------------------------------------------------
 ACTION_SCORE = 70.0       # only scores at or above this are flagged actionable
-RR_CAP = 4.0              # cap R:R in the final rank so one outlier target can't dominate
+RR_FULL = 3.0             # in the final rank, R:R at or above this counts in full; below it scales the score down
+MAX_TARGET_ATR = 4.0      # a 1-3 week swing rarely travels more than ~4 ATR: cap the target there
 MAX_ALLOC = 0.25          # never put more than 25% of the account in one position
 REGIMES = {
     "risk-on": {"risk_pct": 0.01, "max_positions": 5},
@@ -54,7 +55,8 @@ SCORING_DOC = {
         "Otherwise risk-off (up to 3 positions, 0.5% risk each).",
         "2. Hard filters (below). A stock failing any one is excluded, whatever its score.",
         "3. Score 0-100 from the five weighted parts in the table.",
-        f"4. Final rank = score x min(R:R, {RR_CAP:.0f}). Flagged actionable only if score >= {ACTION_SCORE:.0f} "
+        f"4. Final rank = score x min(R:R, {RR_FULL:.0f}) / {RR_FULL:.0f}: setups at {RR_FULL:.0f}R or better rank on score alone, "
+        f"weaker R:R scales the score down. Flagged actionable only if score >= {ACTION_SCORE:.0f} "
         "and within the regime's position count. Allocation = risk per trade / stop distance, capped at "
         f"{MAX_ALLOC:.0%} of the account.",
     ],
@@ -74,7 +76,8 @@ SCORING_DOC = {
                  "fades to 0 at -1.5 ATR (breaking down) and at +3 ATR (stretched). Halved if the 20-day MA is falling."},
         {"key": "rr", "name": "Reward-to-risk", "weight": WEIGHTS["rr"],
          "rule": "Stop = lowest low of 10 sessions minus 0.25 ATR (at least 1 ATR below price). Target = 52-week high "
-                 "if it is at least 1.5 ATR above price, else price + 3 ATR. R:R of 1.5 or less scores 0; 3 or more scores 1."},
+                 "if it is 1.5-4 ATR above price; capped at price + 4 ATR if further (a swing rarely travels more); "
+                 "price + 3 ATR if the high is closer than 1.5 ATR. R:R of 1.5 or less scores 0; 3 or more scores 1."},
         {"key": "catalyst", "name": "Catalyst & confirmation", "weight": WEIGHTS["catalyst"],
          "rule": "40%: share of the last 20 days' volume on up-days (30% scores 0, 70% scores 1). 30%: analyst consensus "
                  "scaled by coverage, halved if the average target is below price. 30%: a gap-up of 3%+ on 1.5x volume in "
@@ -155,7 +158,10 @@ def technicals(bars: pd.DataFrame) -> dict | None:
     hi252 = float(h.tail(252).max())
     stop = float(l.tail(10).min()) - 0.25 * a
     stop = min(stop, last - a)                      # at least 1 ATR of room
-    target = hi252 if hi252 >= last + 1.5 * a else last + 3 * a
+    if hi252 < last + 1.5 * a:          # at/near highs: no overhead resistance, assume a 3 ATR swing
+        target = last + 3 * a
+    else:                                # next resistance, but no further than a realistic swing
+        target = min(hi252, last + MAX_TARGET_ATR * a)
     rr = (target - last) / (last - stop) if last > stop else 0.0
 
     last20 = bars.tail(21)
@@ -235,7 +241,7 @@ def score(row: dict, reg: dict) -> dict:
     return {
         "score": round(total, 1),
         "parts": {k: round(v, 3) for k, v in parts.items()},
-        "final_rank": round(total * min(t["rr"], RR_CAP), 1),
+        "final_rank": round(total * min(t["rr"], RR_FULL) / RR_FULL, 1),
         "upside_pct": round(100 * upside, 1) if upside is not None else None,
         "rs_vs_spy_pct": round(100 * rs, 1),
         "plan": {"entry": round(t["last_close"], 2), "stop": round(t["stop"], 2), "target": round(t["target"], 2),
