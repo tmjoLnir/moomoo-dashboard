@@ -1,6 +1,7 @@
 """Build the dashboard ranking from moomoo data fetched through the Claude moomoo MCP connector.
 
-Used by the on-demand Claude scheduled task (GUIDE.md §7b). The Claude session calls the
+Used by the Claude scheduled task "moomoo MCP dashboard refresh" (GUIDE.md §5), the site's only
+data source. The Claude session calls the
 MCP tools; this script reads their raw JSON output (Claude Code saves large tool results
 to files, so numbers never need to be copied by hand) and does all scaling and scoring
 with scoring.py.
@@ -8,11 +9,12 @@ with scoring.py.
 Steps (all paths default to the mcp/ folder):
   1. screen     <saved quote_stock_screen result>...     -> mcp/universe.json
   2. shortlist --check-listing                           -> codes to pass to quote_stock_basicinfo
-     listing    <quote_stock_basicinfo result>           -> drops listings < 330 days old
+     listing    <saved quote_stock_basicinfo result>     -> drops listings < 330 days old
      shortlist  [--n 15]                                 -> codes to fetch details for
   3. add-consensus <code> <file or inline JSON>          -> mcp/details.json
      add-kline     <code> <saved quote_history_kline result (num=370)>
   4. finalize                                            -> mcp/dashboard.json
+  5. (task) publish_data_branch.py mcp/dashboard.json moomoo-data, then dispatch the deploy
 """
 from __future__ import annotations
 

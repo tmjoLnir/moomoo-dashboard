@@ -75,6 +75,15 @@ local files.
 
 The workflow uploads `site/` straight to Pages, so refreshes never add commits to `main`.
 
+**When the site deploys**
+- On every push to `main`, using the latest snapshot on the `moomoo-data` branch.
+- When the moomoo task finishes, because the task dispatches the workflow.
+- From **Actions → Deploy dashboard → Run workflow**, to redeploy the current snapshot by hand.
+  This doesn't fetch new data; only the task does.
+
+**The `moomoo-data` branch** holds just `dashboard.json`, as a single force-pushed commit.
+It's data, not code: don't merge it or open PRs from it.
+
 ## 5. How to refresh the ranking
 
 The ranking is refreshed by the Claude scheduled task **moomoo MCP dashboard refresh**.
@@ -128,6 +137,8 @@ Claude Code saves large tool results to files, so nothing is copied by hand.
 | Site didn't change after a run | Check that the task's report shows the deploy run, and that its log has "using moomoo data from …". |
 | Pages URL shows 404 | Step 4 isn't done, or the first deploy hasn't finished. Check the Actions tab. |
 | Deploy: "Branch … is not allowed to deploy" | The workflow was run from a non-default branch. Run it from `main`. |
+| Deploy log: "no usable data on moomoo-data" | The branch is missing or incomplete. Run the task once. The site keeps showing what was live. |
+| Task fails at "dispatch the workflow" | Check that `refresh-and-deploy.yml` exists on `main` and that the task dispatches it with no inputs. |
 
 ---
 
