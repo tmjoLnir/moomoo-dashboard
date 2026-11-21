@@ -13,6 +13,7 @@ Steps (all paths default to the mcp/ folder):
      shortlist  [--n 15]                                 -> codes to fetch details for
   3. add-consensus <code> <file or inline JSON>          -> mcp/details.json
      add-kline     <code> <saved quote_history_kline result (num=370)>
+     add-kline     US.SPY <saved result>                 -> market regime (Stage 1) + relative strength
   4. finalize                                            -> mcp/dashboard.json
   5. (task) publish_data_branch.py mcp/dashboard.json moomoo-data, then dispatch the deploy
 """
@@ -37,17 +38,20 @@ FIELDS = {
     ("featured_property", 5401, None): ("rating", 1e3),      # 1 sell .. 5 strong buy
     ("featured_property", 5403, None): ("target_mean", 1e9),
 }
+# cumulative change-rate factor 3102 is keyed by its `days`: value is a percent x1e3.
+RETURN_DAYS = {126: "ret_126d", 21: "ret_21d"}
 # Technicals (RSI14, 50/200-day MA, up-volume share) are computed from the K-lines with
 # scoring.technicals(). The screener's MA factor ignored the
 # requested period in testing, so it is not used.
 SCREEN_RETRIEVE = [  # what the task passes as retrieve_queries
     {"simple_property": {"name": 2201}}, {"simple_property": {"name": 2301}},
     {"featured_property": {"name": 5401}}, {"featured_property": {"name": 5403}},
+    {"cumulative_property": {"name": 3102, "days": 126}}, {"cumulative_property": {"name": 3102, "days": 21}},
 ]
-SCREEN_QUERIES = [  # what the task passes as screen_queries: US, market cap >= $10B, price >= $5
+SCREEN_QUERIES = [  # what the task passes as screen_queries: US, market cap >= $10B, price >= $10
     {"simple_field_query": {"simple_field": 1, "screen_value_list": [2]}},
     {"simple_property_query": {"property": {"name": 2301}, "lower": {"value": 10_000_000_000_000, "includes": True}}},
-    {"simple_property_query": {"property": {"name": 2201}, "lower": {"value": 5_000, "includes": True}}},
+    {"simple_property_query": {"property": {"name": 2201}, "lower": {"value": 10_000, "includes": True}}},
 ]
 
 
@@ -82,6 +86,11 @@ def cmd_screen(files):
                 prop = body.get("property", {})
                 params = tuple(prop.get("indicator_params") or []) or None
                 key = (kind.removesuffix("_result"), prop.get("name"), params)
+                if kind == "cumulative_property_result" and prop.get("name") == 3102 and body.get("value") not in (None, ""):
+                    field = RETURN_DAYS.get(prop.get("days"))
+                    if field:
+                        row[field] = float(body["value"]) / 1e3 / 100
+                    continue
                 if key in FIELDS and body.get("value") not in (None, ""):
                     field, div = FIELDS[key]
                     row[field] = float(body["value"]) / div
@@ -125,9 +134,9 @@ def prerank_rows():
         seen.add(company_key(u))
         if (u.get("price") or 0) < scoring.MIN_PRICE or (u.get("market_cap") or 0) < scoring.MIN_MARKET_CAP:
             continue
-        r = dict(u, consensus01=(u["rating"] - 1) / 4 if u.get("rating") else 0.0, analysts=10)
-        rows.append(r)
-    return sorted(rows, key=scoring.fundamental_prescore, reverse=True)
+        rows.append(u)
+    # momentum-led shortlist (6-month return skipping the last month), not analyst upside
+    return sorted(rows, key=scoring.momentum_prescore, reverse=True)
 
 
 # -- 2. shortlist --------------------------------------------------------------
@@ -169,45 +178,72 @@ def bars_df(b):
                         index=pd.to_datetime(b["t"]))
 
 
+SPY = "US.SPY"
+
+
 def cmd_finalize():
     det = load(DETAILS, {})
-    scored = []
+    spy = det.get(SPY, {}).get("bars")
+    if not spy or len(spy["c"]) < 220:
+        raise SystemExit(f"no SPY bars: run add-kline {SPY} <saved quote_history_kline result> first (Stage 1 regime).")
+    reg = scoring.regime(bars_df(spy))
+
+    scored, excluded, no_data = [], {}, []
     for u in prerank_rows():
-        d = det.get(u["code"], {})
-        b, cons = d.get("bars"), d.get("consensus")
-        tech = scoring.technicals(bars_df(b)) if cons and b else None   # needs >= 220 bars
-        if not tech:
+        if u["code"] == SPY or u["code"] not in det:
             continue
-        con, n, breakdown = scoring.normalize_consensus(cons)
+        d = det[u["code"]]
+        b, cons = d.get("bars"), d.get("consensus") or {}
+        tech = scoring.technicals(bars_df(b)) if b else None
+        if not tech:
+            no_data.append(u["ticker"])
+            continue
+        con, n, breakdown = scoring.normalize_consensus(cons) if cons else (0.0, 0, None)
         row = dict(u, consensus01=con, analysts=n, breakdown=breakdown, bars=b, rating_label=cons.get("rating"),
                    target_mean=cons.get("average") or u.get("target_mean"),
                    target_high=cons.get("highest"), target_low=cons.get("lowest"),
-                   price=b["c"][-1], change_pct=round(100 * (b["c"][-1] / b["c"][-2] - 1), 2))
-        row["tech"] = tech
-        s = scoring.score(row)
-        if s:
-            row.update(s)
-            scored.append(row)
-    scored.sort(key=lambda r: r["score"], reverse=True)
+                   price=b["c"][-1], change_pct=round(100 * (b["c"][-1] / b["c"][-2] - 1), 2), tech=tech)
+        fails = scoring.hard_filters(row)                       # Stage 2
+        if fails:
+            excluded[u["ticker"]] = fails
+            continue
+        row.update(scoring.score(row, reg))                     # Stage 3 + 4
+        scored.append(row)
+
+    scored.sort(key=lambda r: r["final_rank"], reverse=True)   # Stage 4
+    for i, r in enumerate(scored):
+        r["actionable"] = r["score"] >= scoring.ACTION_SCORE and i < reg["max_positions"]
+    if not scored:
+        raise SystemExit("no stock passed the Stage 2 filters. Add details for more shortlisted codes.")
     if len(scored) < 5:
-        raise SystemExit(f"only {len(scored)} stocks scored; need 5. Add details for more shortlisted codes.")
+        print(f"WARNING: only {len(scored)} passed Stage 2; fetch more codes (shortlist --n 35) and rerun, "
+              "or publish fewer than 5.")
 
     keep = ["ticker", "name", "price", "change_pct", "market_cap", "target_mean", "target_high", "target_low",
-            "analysts", "consensus01", "rating_label", "breakdown", "score", "parts", "upside_pct", "tech", "bars"]
+            "analysts", "consensus01", "rating_label", "breakdown", "score", "final_rank", "parts", "upside_pct",
+            "rs_vs_spy_pct", "plan", "actionable", "tech", "bars"]
     data = {
         "generated_at": dt.datetime.now(dt.timezone.utc).isoformat(timespec="seconds"),
         "provider": "moomoo",
         "source": "mcp",
         "provider_label": "moomoo (Claude MCP snapshot)",
         "universe_size": len(load(UNIVERSE, [])),
-        "shortlist_size": len(det),
+        "shortlist_size": len([k for k in det if k != SPY]),
         "scored_count": len(scored),
+        "model": "4-stage swing ranking",
+        "regime": reg,
+        "excluded": excluded,
+        "no_data": no_data,
         "scoring": scoring.SCORING_DOC,
         "top": [{k: r.get(k) for k in keep} for r in scored[:5]],
-        "runners_up": [{k: r.get(k) for k in ("ticker", "name", "score", "upside_pct")} for r in scored[5:15]],
+        "runners_up": [{k: r.get(k) for k in ("ticker", "name", "score", "upside_pct")} | {"rr": r["plan"]["rr"]}
+                       for r in scored[5:15]],
     }
     save(OUT, data)
-    print("top:", ", ".join(f"{r['ticker']} {r['score']}" for r in scored[:5]))
+    print(f"regime: {reg['label']} (SPY {reg['spy']} vs 50d {reg['spy_sma50']} / 200d {reg['spy_sma200']})")
+    print(f"passed Stage 2: {len(scored)}; excluded: " + ", ".join(f"{k} ({'; '.join(v)})" for k, v in excluded.items()))
+    print("top:", ", ".join(f"{r['ticker']} score {r['score']} R:R {r['plan']['rr']}"
+                            f"{' ACTIONABLE' if r['actionable'] else ''}" for r in scored[:5]))
     print(f"wrote {OUT} ({OUT.stat().st_size / 1024:.0f} KB)")
 
 
@@ -215,7 +251,7 @@ def main():
     ap = argparse.ArgumentParser()
     sub = ap.add_subparsers(dest="cmd", required=True)
     sub.add_parser("screen").add_argument("files", nargs="+")
-    sl = sub.add_parser("shortlist"); sl.add_argument("--n", type=int, default=15)
+    sl = sub.add_parser("shortlist"); sl.add_argument("--n", type=int, default=20)
     sl.add_argument("--check-listing", action="store_true", help="print codes whose listing date is still unknown")
     sub.add_parser("listing").add_argument("src")
     sub.add_parser("screen-queries")

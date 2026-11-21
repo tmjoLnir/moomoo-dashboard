@@ -58,6 +58,12 @@ button, .btn-ghost {
 #reload { background: var(--accent); border-color: var(--accent); color: #fff; }
 button:focus-visible, a:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
 
+.regime { margin: 16px 0 0; padding: 10px 14px; border-radius: 8px; border: 1px solid var(--border); font-size: .9rem; }
+.regime b.on { color: var(--up); } .regime b.off { color: var(--down); }
+.act { display: block; font-size: .7rem; font-weight: 700; text-transform: uppercase; letter-spacing: .04em; color: var(--muted); }
+.act.yes { color: var(--up); }
+.stages { padding-left: 1.2em; margin: 8px 0 12px; } .stages li { margin: 4px 0; list-style: none; }
+.plan { margin-bottom: 12px; }
 .banner { margin: 16px 0 0; padding: 10px 14px; border-radius: 8px; background: var(--warn-bg); color: var(--warn-text); font-size: .9rem; }
 
 .ranking { list-style: none; padding: 0; margin: 16px 0; display: grid; grid-template-columns: repeat(5, 1fr); gap: 10px; }

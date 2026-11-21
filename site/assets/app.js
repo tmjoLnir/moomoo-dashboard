@@ -1,4 +1,4 @@
-/* Top-5 buy-potential dashboard. Reads data/dashboard.json: a moomoo MCP snapshot built by scripts/mcp_build.py. */
+/* Top-5 swing-trade dashboard (4-stage model). Reads data/dashboard.json: a moomoo MCP snapshot built by scripts/mcp_build.py. */
 (() => {
   "use strict";
   const LWC = window.LightweightCharts;
@@ -58,10 +58,24 @@
       banner.textContent = `This ranking is from ${ago(d.generated_at)}. The weekly moomoo refresh may have failed; run the "moomoo MCP dashboard refresh" task in Claude.`;
     } else banner.hidden = true;
 
+    // Stage 1: market regime
+    const reg = d.regime, regEl = $("#regime");
+    if (reg) {
+      regEl.hidden = false;
+      const on = reg.label === "risk-on";
+      regEl.innerHTML = `<b class="${on ? "on" : "off"}"></b> <span></span>`;
+      regEl.children[0].textContent = `Market regime: ${reg.label}`;
+      regEl.children[1].textContent =
+        `SPY ${fmtPx(reg.spy)} vs 50-day ${fmtPx(reg.spy_sma50)} / 200-day ${fmtPx(reg.spy_sma200)} (${fmtPct(reg.spy_off_high_pct, 1)} from its 52-week high). ` +
+        `Up to ${reg.max_positions} positions, ${(reg.risk_pct * 100).toFixed(1)}% account risk each.` +
+        (on ? "" : " Trade smaller and favour names stronger than the market.");
+    } else regEl.hidden = true;
+
     // ranking strip
     $("#ranking").replaceChildren(...d.top.map((s, i) => {
       const li = document.createElement("li");
-      li.innerHTML = `<a href="#s-${s.ticker}"><span class="r">#${i + 1}</span><span class="t"></span><span class="s">Score ${s.score.toFixed(1)}</span></a>`;
+      const rr = s.plan ? ` · R:R ${s.plan.rr.toFixed(1)}` : "";
+      li.innerHTML = `<a href="#s-${s.ticker}"><span class="r">#${i + 1}${s.actionable ? " · actionable" : ""}</span><span class="t"></span><span class="s">Score ${s.score.toFixed(1)}${rr}</span></a>`;
       $(".t", li).textContent = s.ticker;
       return li;
     }));
@@ -75,6 +89,7 @@
     // scoring logic, printed from the same JSON the ranking came from
     const sc = d.scoring;
     $("#logic-summary").textContent = sc.summary;
+    $("#logic-stages").replaceChildren(...(sc.stages || []).map((t) => Object.assign(document.createElement("li"), { textContent: t })));
     $("#logic-rows").replaceChildren(...sc.components.map((c) => {
       const tr = document.createElement("tr");
       tr.innerHTML = `<td></td><td class="num"></td><td></td>`;
@@ -84,15 +99,19 @@
       return tr;
     }));
     $("#logic-filters").replaceChildren(...sc.filters.map((f) => Object.assign(document.createElement("li"), { textContent: f })));
-    $("#logic-pipeline").textContent =
-      d.shortlist_size < d.universe_size
+    const ex = d.excluded ? Object.entries(d.excluded) : [];
+    $("#logic-pipeline").textContent = d.regime
+      ? `Pipeline: ${d.universe_size} stocks screened; the ${d.shortlist_size} with the strongest 6-month momentum had daily bars pulled; ` +
+        `${ex.length} failed Stage 2 (${ex.map(([t, r]) => `${t}: ${r.join(", ")}`).join("; ") || "none"}); ` +
+        `${d.scored_count} scored and ranked by score × reward-to-risk.`
+      : d.shortlist_size < d.universe_size
         ? `Pipeline: ${d.universe_size} stocks screened on analyst data first; the best ${d.shortlist_size} had price history pulled for the technical sub-scores; top 5 by total score shown.`
         : `Pipeline: all ${d.universe_size} stocks in the universe were fully scored; top 5 by total score shown.`;
     $("#logic-caveat").textContent = sc.caveat;
 
     $("#runners").replaceChildren(...(d.runners_up || []).map((r, i) => {
       const tr = document.createElement("tr");
-      tr.innerHTML = `<td>${i + 6}</td><td><b></b></td><td></td><td class="num">${r.score.toFixed(1)}</td><td class="num">${fmtPct(r.upside_pct, 1)}</td>`;
+      tr.innerHTML = `<td>${i + 6}</td><td><b></b></td><td></td><td class="num">${r.score.toFixed(1)}</td><td class="num">${r.rr != null ? r.rr.toFixed(2) : fmtPct(r.upside_pct, 1)}</td>`;
       tr.children[1].firstChild.textContent = r.ticker;
       tr.children[2].textContent = r.name || "";
       return tr;
@@ -110,6 +129,33 @@
     chg.textContent = `${s.change_pct >= 0 ? "▲" : "▼"} ${fmtPct(s.change_pct)}`;
     chg.classList.add(s.change_pct >= 0 ? "up" : "down");
     $(".score", el).textContent = s.score.toFixed(1);
+    if (s.actionable != null) {
+      const act = $(".act", el);
+      act.hidden = false;
+      act.textContent = s.actionable ? "Actionable" : "Watch";
+      act.classList.toggle("yes", !!s.actionable);
+      act.title = s.actionable ? "Score at or above the action threshold and within the regime's position count"
+                               : "Passed the filters, but below the action threshold or beyond the regime's position count";
+    }
+    const plan = $(".plan", el);
+    if (s.plan) {
+      const p = s.plan;
+      const prows = [
+        ["Entry (last close)", `$${fmtPx(p.entry)}`],
+        ["Stop", `$${fmtPx(p.stop)} (−${p.stop_pct.toFixed(1)}%)`],
+        ["Target", `$${fmtPx(p.target)} (${fmtPct(100 * (p.target / p.entry - 1), 1)})`],
+        ["Reward : risk", `${p.rr.toFixed(2)} R`],
+        ["Position size", `${p.alloc_pct.toFixed(1)}% of account (risks ${p.risk_pct}%)`],
+      ];
+      plan.replaceChildren(...prows.flatMap(([k, v]) => {
+        const dt = document.createElement("dt"); dt.textContent = k;
+        const dd = document.createElement("dd"); dd.textContent = v;
+        return [dt, dd];
+      }));
+    } else {
+      plan.previousElementSibling.remove();
+      plan.remove();
+    }
 
     $(".parts", el).replaceChildren(...Object.entries(s.parts).map(([k, v]) => {
       const meta = partName[k];
@@ -128,12 +174,17 @@
       ["Upside to target", fmtPct(s.upside_pct, 1)],
       ["Target range", s.target_low && s.target_high ? `$${fmtPx(s.target_low)} – $${fmtPx(s.target_high)}` : "–"],
       ["Analysts", b ? `${s.analysts} (${b.strong_buy + b.buy} buy · ${b.hold} hold · ${b.underperform + b.sell} sell)` : String(s.analysts ?? "–")],
+      ...(s.tech.pct_of_52w_high != null ? [
+        ["Price vs 52-week high", `${(s.tech.pct_of_52w_high * 100).toFixed(1)}%`],
+        ["6-mo strength vs SPY", fmtPct(s.rs_vs_spy_pct, 1)],
+        ["From 20-day MA", `${s.tech.dist20_atr >= 0 ? "+" : ""}${s.tech.dist20_atr.toFixed(2)} ATR`],
+      ] : []),
       ["RSI(14)", s.tech.rsi14.toFixed(1)],
       ["50 / 200-day MA", `${fmtPx(s.tech.sma50)} / ${fmtPx(s.tech.sma200)}`],
       ["Up-day volume (20d)", `${Math.round(s.tech.up_volume_share * 100)}%`],
       ["Market cap", s.market_cap ? `$${fmtBig(s.market_cap)}` : "–"],
     ];
-    $(".stats", el).replaceChildren(...rows.flatMap(([k, v]) => {
+    $(".stats:not(.plan)", el).replaceChildren(...rows.flatMap(([k, v]) => {
       const dt = document.createElement("dt"); dt.textContent = k;
       const dd = document.createElement("dd"); dd.textContent = v;
       return [dt, dd];

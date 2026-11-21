@@ -1,6 +1,6 @@
-# Build and deploy guide: Top 5 buy-potential dashboard on GitHub Pages
+# Build and deploy guide: Top 5 swing-trade dashboard on GitHub Pages
 
-The site shows moomoo-style charts of the top 5 US stocks by a blended buy-potential score.
+The site shows moomoo-style charts of the top 5 US swing-trade candidates from a four-stage ranking model (see `scripts/scoring.py`).
 Its only data source is **moomoo, fetched through the moomoo MCP connector in Claude**.
 
 ---
@@ -50,7 +50,7 @@ GitHub Pages is free for public repos. A private repo needs a paid plan.
 ```
 .github/workflows/refresh-and-deploy.yml   # "Deploy dashboard": moomoo-data -> GitHub Pages
 scripts/mcp_build.py                       # turns raw moomoo MCP output into dashboard.json
-scripts/scoring.py                         # the blended score (weights, rules, filters)
+scripts/scoring.py                         # the 4-stage model (regime, filters, weights, sizing)
 scripts/publish_data_branch.py             # pushes dashboard.json to moomoo-data
 scripts/load_moomoo_data.py                # deploy side: copy the snapshot into site/
 scripts/keep_last_good.py                  # deploy side: if loading fails, keep what's live
@@ -98,13 +98,16 @@ The ranking is refreshed by the Claude scheduled task **moomoo MCP dashboard ref
 About 5–10 minutes later the site updates, and you get a push notification.
 
 **What a run does**
-1. Screens the top 200 US stocks by market cap (≥ $10B, price ≥ $5) with
-   `quote_stock_screen`, which returns price, market cap, analyst rating and target.
+1. Screens the top 200 US stocks by market cap (≥ $10B, price ≥ $10) with
+   `quote_stock_screen`, which returns price, market cap, analyst rating and target,
+   and 126-day and 21-day returns.
 2. Drops stocks listed less than 330 days ago (`quote_stock_basicinfo`): they can't have
    a 200-day average yet.
-3. Pre-ranks on analyst data and keeps the best 15.
-4. For those 15, fetches analyst consensus and about 370 daily K-lines.
-5. Scores them with `scripts/scoring.py`.
+3. Pre-ranks on 6-month momentum (skipping the last month) and keeps the best 20.
+4. For those 20, fetches analyst consensus and about 370 daily K-lines, plus SPY's K-lines
+   for the market regime and relative strength.
+5. Runs the four stages in `scripts/scoring.py`: regime, hard filters, 0-100 score,
+   final rank by score × reward-to-risk with position sizing.
 6. Publishes to the `moomoo-data` branch and dispatches **Deploy dashboard**.
 
 All number handling happens in `scripts/mcp_build.py`, which reads the raw tool output.

@@ -1,13 +1,17 @@
-"""Blended "buy potential" score.
+"""Four-stage swing-trade ranking.
 
-scripts/mcp_build.py hands this module the moomoo inputs:
-  - price, market cap
-  - analyst average target price, analyst count, a 0..1 consensus rating
-  - daily OHLCV bars (pandas DataFrame, >= ~220 rows for the 200-day average)
+Goal: rank stocks by expected return per unit of risk for a 1-3 week swing trade,
+not by raw upside or by how many indicators fired.
 
-The logic below is ALSO exported as plain text (SCORING_DOC) and written into
-the dashboard JSON, so the web page always prints exactly the rules that
-produced the ranking. Change a weight here and the page updates itself.
+  Stage 1  Market regime     SPY trend decides HOW MUCH to trade (position count, risk per trade).
+  Stage 2  Hard filters      pass/fail; no score can override a failed filter.
+  Stage 3  Score 0-100       five weighted parts, strongest-evidence factors weighted most.
+  Stage 4  Final rank        score x reward-to-risk (capped), then position sizing by risk.
+
+scripts/mcp_build.py hands this module moomoo daily bars (>= 260 rows), analyst
+consensus and SPY bars. The rules are ALSO exported as text (SCORING_DOC) into the
+dashboard JSON, so the web page always prints exactly the rules that produced the ranking.
+Change a number here and the page updates itself.
 """
 from __future__ import annotations
 
@@ -15,45 +19,73 @@ import math
 
 import pandas as pd
 
-# ---- weights (must sum to 1.0) ---------------------------------------------
+# ---- Stage 3 weights (must sum to 1.0) ----------------------------------------
 WEIGHTS = {
-    "upside": 0.35,     # analyst target-price upside
-    "consensus": 0.20,  # analyst buy/hold/sell mix, scaled by coverage
-    "trend": 0.15,      # price vs 200-day MA, 50-day vs 200-day MA
-    "rsi": 0.15,        # RSI(14) "pullback, not free-fall" sweet spot
-    "volume": 0.15,     # share of last 20 days' volume traded on up days
+    "trend": 0.30,     # nearness to 52-week high + 6-month strength vs SPY
+    "entry": 0.25,     # where price sits vs a rising 20-day average, in ATR units
+    "rr": 0.20,        # reward-to-risk from structural stop to next resistance
+    "catalyst": 0.15,  # up-day volume, analyst support, recent gap-up on volume
+    "timing": 0.10,    # MACD / RSI / 10-day MA crossovers (timing aid only)
 }
 
-# ---- eligibility filters -----------------------------------------------------
-MIN_PRICE = 5.0
+# ---- Stage 2 hard filters --------------------------------------------------------
+MIN_PRICE = 10.0
 MIN_MARKET_CAP = 10e9
-MIN_ANALYSTS = 5
+MIN_DOLLAR_VOL = 20e6     # 20-day average daily dollar volume
+MAX_STOP_PCT = 0.10       # if the structural stop is >10% away, there is no tight setup
+MIN_BARS = 260
+
+# ---- Stage 4 ------------------------------------------------------------------------
+ACTION_SCORE = 70.0       # only scores at or above this are flagged actionable
+RR_CAP = 4.0              # cap R:R in the final rank so one outlier target can't dominate
+MAX_ALLOC = 0.25          # never put more than 25% of the account in one position
+REGIMES = {
+    "risk-on": {"risk_pct": 0.01, "max_positions": 5},
+    "risk-off": {"risk_pct": 0.005, "max_positions": 3},
+}
 
 SCORING_DOC = {
-    "summary": "Score 0-100 = weighted blend of five sub-scores, each scaled 0-1. "
-               "Analyst data says where the price could go; technicals say whether now is a sensible entry.",
+    "summary": "Four stages, run in order. Stage 1 reads the market to set how much to trade. "
+               "Stage 2 removes anything that fails a hard filter. Stage 3 scores survivors 0-100 on "
+               "factors weighted by research strength. Stage 4 ranks by score x reward-to-risk and sizes "
+               "each trade so a stop-out costs a fixed slice of the account.",
+    "stages": [
+        "1. Regime: SPY above its 50- and 200-day averages = risk-on (up to 5 positions, 1% account risk each). "
+        "Otherwise risk-off (up to 3 positions, 0.5% risk each).",
+        "2. Hard filters (below). A stock failing any one is excluded, whatever its score.",
+        "3. Score 0-100 from the five weighted parts in the table.",
+        f"4. Final rank = score x min(R:R, {RR_CAP:.0f}). Flagged actionable only if score >= {ACTION_SCORE:.0f} "
+        "and within the regime's position count. Allocation = risk per trade / stop distance, capped at "
+        f"{MAX_ALLOC:.0%} of the account.",
+    ],
     "filters": [
-        f"Price >= ${MIN_PRICE:.0f}",
-        f"Market cap >= ${MIN_MARKET_CAP / 1e9:.0f}B",
-        f"At least {MIN_ANALYSTS} analysts covering the stock",
-        "At least 220 trading days of price history",
+        f"Price >= ${MIN_PRICE:.0f} and market cap >= ${MIN_MARKET_CAP / 1e9:.0f}B",
+        f"20-day average dollar volume >= ${MIN_DOLLAR_VOL / 1e6:.0f}M",
+        "Price above a RISING 200-day average (200-day MA higher than 20 sessions ago)",
+        f"A defined stop: structural stop no more than {MAX_STOP_PCT:.0%} below price",
+        f"At least {MIN_BARS} trading days of history",
     ],
     "components": [
-        {"key": "upside", "name": "Analyst upside", "weight": WEIGHTS["upside"],
-         "rule": "Upside = average analyst target / price - 1. 0% or less scores 0; 50% or more scores 1; linear in between."},
-        {"key": "consensus", "name": "Analyst consensus", "weight": WEIGHTS["consensus"],
-         "rule": "Mean rating on a 1 (sell) to 5 (strong buy) scale, rescaled to 0-1, then multiplied by "
-                 "min(1, analysts/10) so thinly covered stocks are discounted."},
-        {"key": "trend", "name": "Trend", "weight": WEIGHTS["trend"],
-         "rule": "0.5 if price > 200-day MA, plus 0.5 if 50-day MA > 200-day MA."},
-        {"key": "rsi", "name": "RSI(14) setup", "weight": WEIGHTS["rsi"],
-         "rule": "Peaks at RSI 45 (a pullback that isn't a free-fall): score = 1 - |RSI - 45| / 35, floored at 0. "
-                 "So RSI 10 or RSI 80 scores 0."},
-        {"key": "volume", "name": "Volume accumulation", "weight": WEIGHTS["volume"],
-         "rule": "Share of the last 20 days' volume traded on up-days. 30% or less scores 0, 70% or more scores 1."},
+        {"key": "trend", "name": "Trend & relative strength", "weight": WEIGHTS["trend"],
+         "rule": "Half: price / 52-week high (75% or less scores 0, at the high scores 1). Half: 6-month return "
+                 "skipping the last month, minus SPY's (-10% or worse scores 0, +30% or better scores 1)."},
+        {"key": "entry", "name": "Entry location", "weight": WEIGHTS["entry"],
+         "rule": "Distance from the 20-day MA in ATR(14) units. -0.5 to +1.0 ATR scores 1 (a pullback or tight base); "
+                 "fades to 0 at -1.5 ATR (breaking down) and at +3 ATR (stretched). Halved if the 20-day MA is falling."},
+        {"key": "rr", "name": "Reward-to-risk", "weight": WEIGHTS["rr"],
+         "rule": "Stop = lowest low of 10 sessions minus 0.25 ATR (at least 1 ATR below price). Target = 52-week high "
+                 "if it is at least 1.5 ATR above price, else price + 3 ATR. R:R of 1.5 or less scores 0; 3 or more scores 1."},
+        {"key": "catalyst", "name": "Catalyst & confirmation", "weight": WEIGHTS["catalyst"],
+         "rule": "40%: share of the last 20 days' volume on up-days (30% scores 0, 70% scores 1). 30%: analyst consensus "
+                 "scaled by coverage, halved if the average target is below price. 30%: a gap-up of 3%+ on 1.5x volume in "
+                 "the last 20 sessions that price still holds."},
+        {"key": "timing", "name": "Timing signal", "weight": WEIGHTS["timing"],
+         "rule": "One third each, if within the last 3 sessions: MACD histogram crossed above 0; RSI(14) crossed above 50; "
+                 "close crossed above the 10-day MA. Lowest weight: these time an entry, they don't predict returns."},
     ],
-    "caveat": "A screen, not advice. It ranks large caps by a transparent rule; it does not know about news, "
-              "earnings dates or your risk tolerance.",
+    "caveat": "A screen, not advice. Earnings dates and sector concentration are NOT checked: confirm no earnings report "
+              "falls inside your holding period and hold at most two names per sector. Prices are end-of-day; recheck "
+              "levels before placing orders. Weights are a research-informed starting point, not backtested settings.",
 }
 
 
@@ -63,67 +95,162 @@ def clip01(x: float) -> float:
     return max(0.0, min(1.0, float(x)))
 
 
-def rsi(close: pd.Series, period: int = 14) -> float:
-    """Wilder's RSI on the latest bar."""
+def ramp(x: float, lo: float, hi: float) -> float:
+    """0 at lo, 1 at hi, linear between (works for lo > hi too)."""
+    return clip01((x - lo) / (hi - lo))
+
+
+def rsi_series(close: pd.Series, period: int = 14) -> pd.Series:
+    """Wilder's RSI."""
     delta = close.diff()
     gain = delta.clip(lower=0).ewm(alpha=1 / period, adjust=False).mean()
     loss = (-delta.clip(upper=0)).ewm(alpha=1 / period, adjust=False).mean()
-    rs = gain.iloc[-1] / loss.iloc[-1] if loss.iloc[-1] else math.inf
-    return 100 - 100 / (1 + rs)
+    rs = gain / loss.replace(0, math.nan)
+    return (100 - 100 / (1 + rs)).fillna(100)
+
+
+def atr_series(bars: pd.DataFrame, period: int = 14) -> pd.Series:
+    prev = bars["close"].shift()
+    tr = pd.concat([bars["high"] - bars["low"], (bars["high"] - prev).abs(), (bars["low"] - prev).abs()], axis=1).max(axis=1)
+    return tr.ewm(alpha=1 / period, adjust=False).mean()
+
+
+def crossed_up(series: pd.Series, level, lookback: int = 3) -> bool:
+    """True if series moved from <= level to > level within the last `lookback` bars."""
+    lvl = level if isinstance(level, pd.Series) else pd.Series(level, index=series.index)
+    above = series > lvl
+    tail = above.tail(lookback + 1)
+    return bool(tail.iloc[-1]) and not bool(tail.iloc[:-1].all())
+
+
+def momentum_6_1(close: pd.Series) -> float:
+    """Return from ~6 months ago to ~1 month ago (skips the short-term reversal month)."""
+    return float(close.iloc[-22] / close.iloc[-127] - 1)
+
+
+def regime(spy: pd.DataFrame) -> dict:
+    """Stage 1 from SPY daily bars."""
+    c = spy["close"]
+    last, sma50, sma200 = float(c.iloc[-1]), float(c.rolling(50).mean().iloc[-1]), float(c.rolling(200).mean().iloc[-1])
+    label = "risk-on" if last > sma50 and last > sma200 else "risk-off"
+    return {"label": label, **REGIMES[label], "spy": round(last, 2), "spy_sma50": round(sma50, 2),
+            "spy_sma200": round(sma200, 2), "spy_mom_6_1": momentum_6_1(c),
+            "spy_off_high_pct": round(100 * (last / float(spy["high"].tail(252).max()) - 1), 1)}
 
 
 def technicals(bars: pd.DataFrame) -> dict | None:
     """Features from daily bars (columns: open, high, low, close, volume)."""
-    if bars is None or len(bars) < 220:
+    if bars is None or len(bars) < MIN_BARS:
         return None
-    close, vol = bars["close"], bars["volume"]
-    sma50 = close.rolling(50).mean().iloc[-1]
-    sma200 = close.rolling(200).mean().iloc[-1]
+    o, h, l, c, v = (bars[k] for k in ("open", "high", "low", "close", "volume"))
+    last = float(c.iloc[-1])
+    sma10, sma20, sma50, sma200 = (c.rolling(n).mean() for n in (10, 20, 50, 200))
+    atr = atr_series(bars)
+    a = float(atr.iloc[-1])
+    rsi = rsi_series(c)
+    ema12, ema26 = c.ewm(span=12, adjust=False).mean(), c.ewm(span=26, adjust=False).mean()
+    macd = ema12 - ema26
+    hist = macd - macd.ewm(span=9, adjust=False).mean()
+
+    hi252 = float(h.tail(252).max())
+    stop = float(l.tail(10).min()) - 0.25 * a
+    stop = min(stop, last - a)                      # at least 1 ATR of room
+    target = hi252 if hi252 >= last + 1.5 * a else last + 3 * a
+    rr = (target - last) / (last - stop) if last > stop else 0.0
+
     last20 = bars.tail(21)
     up = last20["close"].diff() > 0
     vol20 = last20["volume"].iloc[1:]
     up_share = float(vol20[up.iloc[1:]].sum() / vol20.sum()) if vol20.sum() else 0.5
+
+    vol50 = v.rolling(50).mean().shift()
+    gap = False
+    for i in range(len(bars) - 20, len(bars)):
+        if o.iloc[i] >= c.iloc[i - 1] * 1.03 and v.iloc[i] >= 1.5 * vol50.iloc[i] and last >= l.iloc[i]:
+            gap = True
+
     return {
-        "sma50": float(sma50),
-        "sma200": float(sma200),
-        "rsi14": float(rsi(close)),
+        "last_close": last,
+        "sma20": float(sma20.iloc[-1]), "sma50": float(sma50.iloc[-1]), "sma200": float(sma200.iloc[-1]),
+        "sma200_rising": bool(sma200.iloc[-1] > sma200.iloc[-21]),
+        "sma20_rising": bool(sma20.iloc[-1] > sma20.iloc[-6]),
+        "atr14": a,
+        "rsi14": float(rsi.iloc[-1]),
+        "pct_of_52w_high": last / hi252,
+        "high_52w": hi252,
+        "mom_6_1": momentum_6_1(c),
+        "dist20_atr": (last - float(sma20.iloc[-1])) / a if a else 0.0,
+        "dollar_vol20": float((c * v).tail(20).mean()),
         "up_volume_share": up_share,
-        "last_close": float(close.iloc[-1]),
-        "avg_vol_5": float(vol.tail(5).mean()),
-        "avg_vol_50": float(vol.tail(50).mean()),
+        "gap_up_held": gap,
+        "sig_macd": crossed_up(hist, 0.0),
+        "sig_rsi50": crossed_up(rsi, 50.0),
+        "sig_ma10": crossed_up(c, sma10),
+        "stop": stop, "target": target, "rr": rr, "stop_pct": (last - stop) / last,
     }
 
 
-def score(row: dict) -> dict | None:
-    """row needs: price, market_cap, target_mean, analysts, consensus01, tech (dict from technicals)."""
-    price, tech = row.get("price"), row.get("tech")
-    if not price or not tech:
-        return None
-    if price < MIN_PRICE or (row.get("market_cap") or 0) < MIN_MARKET_CAP:
-        return None
-    if (row.get("analysts") or 0) < MIN_ANALYSTS or not row.get("target_mean"):
-        return None
+def hard_filters(row: dict) -> list[str]:
+    """Stage 2. Returns the list of failed filters (empty = pass)."""
+    t, fails = row["tech"], []
+    if row["price"] < MIN_PRICE or (row.get("market_cap") or 0) < MIN_MARKET_CAP:
+        fails.append("size/price")
+    if t["dollar_vol20"] < MIN_DOLLAR_VOL:
+        fails.append("liquidity")
+    if not (t["last_close"] > t["sma200"] and t["sma200_rising"]):
+        fails.append("below or falling 200-day")
+    if t["stop_pct"] > MAX_STOP_PCT:
+        fails.append("no tight stop")
+    return fails
 
-    upside = row["target_mean"] / price - 1
+
+def entry_score(d: float) -> float:
+    if d < -0.5:
+        return ramp(d, -1.5, -0.5)
+    if d <= 1.0:
+        return 1.0
+    return ramp(d, 3.0, 1.0)
+
+
+def score(row: dict, reg: dict) -> dict:
+    """Stage 3 + 4 for a row that passed Stage 2.
+
+    row needs: price, tech (from technicals), consensus01, analysts, target_mean (optional).
+    """
+    t = row["tech"]
+    rs = t["mom_6_1"] - reg["spy_mom_6_1"]
+    upside = (row["target_mean"] / row["price"] - 1) if row.get("target_mean") else None
+    analyst = clip01(row.get("consensus01", 0)) * min(1.0, (row.get("analysts") or 0) / 10)
+    if upside is not None and upside < 0:
+        analyst *= 0.5
     parts = {
-        "upside": clip01(upside / 0.50),
-        "consensus": clip01(row.get("consensus01", 0)) * min(1.0, row["analysts"] / 10),
-        "trend": 0.5 * (price > tech["sma200"]) + 0.5 * (tech["sma50"] > tech["sma200"]),
-        "rsi": clip01(1 - abs(tech["rsi14"] - 45) / 35),
-        "volume": clip01((tech["up_volume_share"] - 0.30) / 0.40),
+        "trend": 0.5 * ramp(t["pct_of_52w_high"], 0.75, 1.0) + 0.5 * ramp(rs, -0.10, 0.30),
+        "entry": entry_score(t["dist20_atr"]) * (1.0 if t["sma20_rising"] else 0.5),
+        "rr": ramp(t["rr"], 1.5, 3.0),
+        "catalyst": 0.4 * ramp(t["up_volume_share"], 0.30, 0.70) + 0.3 * analyst + 0.3 * float(t["gap_up_held"]),
+        "timing": (t["sig_macd"] + t["sig_rsi50"] + t["sig_ma10"]) / 3,
     }
     total = 100 * sum(WEIGHTS[k] * v for k, v in parts.items())
-    return {"score": round(total, 1), "parts": {k: round(v, 3) for k, v in parts.items()},
-            "upside_pct": round(100 * upside, 1)}
+    alloc = min(MAX_ALLOC, reg["risk_pct"] / t["stop_pct"]) if t["stop_pct"] > 0 else 0.0
+    return {
+        "score": round(total, 1),
+        "parts": {k: round(v, 3) for k, v in parts.items()},
+        "final_rank": round(total * min(t["rr"], RR_CAP), 1),
+        "upside_pct": round(100 * upside, 1) if upside is not None else None,
+        "rs_vs_spy_pct": round(100 * rs, 1),
+        "plan": {"entry": round(t["last_close"], 2), "stop": round(t["stop"], 2), "target": round(t["target"], 2),
+                 "rr": round(t["rr"], 2), "stop_pct": round(100 * t["stop_pct"], 1),
+                 "alloc_pct": round(100 * alloc, 1), "risk_pct": round(100 * reg["risk_pct"], 2)},
+    }
 
 
-def fundamental_prescore(row: dict) -> float:
-    """Cheap pre-rank (analyst data only) used to shortlist before pulling price history."""
-    if not row.get("price") or not row.get("target_mean"):
-        return -1
-    up = clip01((row["target_mean"] / row["price"] - 1) / 0.50)
-    con = clip01(row.get("consensus01", 0)) * min(1.0, (row.get("analysts") or 0) / 10)
-    return WEIGHTS["upside"] * up + WEIGHTS["consensus"] * con
+def momentum_prescore(row: dict) -> float:
+    """Cheap pre-rank from screener fields (6-month return excluding the last month) to pick
+    which stocks get daily bars pulled. Missing data sorts last."""
+    r126, r21 = row.get("ret_126d"), row.get("ret_21d")
+    if r126 is None or r21 is None:
+        return -math.inf
+    return (1 + r126) / (1 + r21) - 1
 
 
 def consensus_from_counts(strong_buy=0, buy=0, hold=0, underperform=0, sell=0) -> tuple[float, int]:

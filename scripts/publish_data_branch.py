@@ -19,7 +19,7 @@ def main():
     path, branch = sys.argv[1], sys.argv[2]
     remote = sys.argv[3] if len(sys.argv) > 3 else "origin"
     data = json.loads(open(path, encoding="utf-8").read())
-    assert len(data.get("top", [])) >= 5, "refusing to publish a ranking with fewer than 5 stocks"
+    assert len(data.get("top", [])) >= 1, "refusing to publish an empty ranking"
 
     env = {"GIT_AUTHOR_NAME": "moomoo-refresh", "GIT_AUTHOR_EMAIL": "actions@users.noreply.github.com",
            "GIT_COMMITTER_NAME": "moomoo-refresh", "GIT_COMMITTER_EMAIL": "actions@users.noreply.github.com"}

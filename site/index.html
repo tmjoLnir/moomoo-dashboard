@@ -3,8 +3,8 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Top 5 Buy Potential</title>
-  <meta name="description" content="Top 5 US stocks ranked by a transparent blended buy-potential score, refreshed automatically.">
+  <title>Top 5 Swing-Trade Buys</title>
+  <meta name="description" content="Top US swing-trade candidates ranked by a transparent four-stage model: market regime, hard filters, a 0-100 score and reward-to-risk.">
   <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><polyline points='3,24 11,15 17,19 29,6' fill='none' stroke='%23e0485a' stroke-width='4' stroke-linecap='round' stroke-linejoin='round'/></svg>">
   <link rel="stylesheet" href="assets/style.css">
 </head>
@@ -12,7 +12,7 @@
   <header class="top">
     <div class="wrap top-inner">
       <div>
-        <h1>Top 5 US stocks by buy potential</h1>
+        <h1>Top 5 US swing-trade buys</h1>
         <p class="meta" id="meta">Loading…</p>
       </div>
       <div class="actions">
@@ -24,6 +24,7 @@
 
   <main class="wrap">
     <div id="banner" class="banner" hidden></div>
+    <div id="regime" class="regime" hidden></div>
 
     <section aria-label="Ranking summary">
       <ol id="ranking" class="ranking"></ol>
@@ -34,11 +35,13 @@
     <section class="panel" aria-labelledby="logic-h">
       <h2 id="logic-h">How the score works</h2>
       <p id="logic-summary"></p>
+      <ol id="logic-stages" class="stages"></ol>
+      <h3>Stage 3 score parts</h3>
       <table class="logic">
         <thead><tr><th>Component</th><th class="num">Weight</th><th>Rule</th></tr></thead>
         <tbody id="logic-rows"></tbody>
       </table>
-      <h3>Filters (a stock must pass all)</h3>
+      <h3>Stage 2 filters (a stock must pass all)</h3>
       <ul id="logic-filters"></ul>
       <p class="muted" id="logic-pipeline"></p>
       <p class="caveat" id="logic-caveat"></p>
@@ -47,7 +50,7 @@
     <section class="panel" aria-labelledby="ru-h">
       <h2 id="ru-h">Runners-up</h2>
       <table class="runners">
-        <thead><tr><th>#</th><th>Ticker</th><th>Name</th><th class="num">Score</th><th class="num">Analyst upside</th></tr></thead>
+        <thead><tr><th>#</th><th>Ticker</th><th>Name</th><th class="num">Score</th><th class="num">R:R</th></tr></thead>
         <tbody id="runners"></tbody>
       </table>
     </section>
@@ -72,7 +75,7 @@
           <span class="price"></span>
           <span class="chg"></span>
         </div>
-        <div class="score-badge" title="Blended buy-potential score (0-100)"><span class="score"></span><small>/100</small></div>
+        <div class="score-badge" title="Stage 3 score (0-100)"><span class="score"></span><small>/100</small><span class="act" hidden></span></div>
       </div>
 
       <div class="stock-body">
@@ -89,6 +92,8 @@
         </div>
 
         <div class="side">
+          <h3>Trade plan</h3>
+          <dl class="stats plan"></dl>
           <h3>Score breakdown</h3>
           <ul class="parts"></ul>
           <dl class="stats"></dl>

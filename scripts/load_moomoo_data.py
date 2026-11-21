@@ -32,8 +32,8 @@ def main() -> int:
         print(f"no usable data on {a.branch}: {e}")
         return 1
     top = data.get("top", [])
-    if len(top) < 5 or not all(t.get("bars") for t in top):
-        print(f"data on {a.branch} is incomplete (needs 5 stocks with chart bars)")
+    if len(top) < 1 or not all(t.get("bars") for t in top):
+        print(f"data on {a.branch} is incomplete (needs at least 1 stock with chart bars)")
         return 1
     age_h = (dt.datetime.now(dt.timezone.utc) - dt.datetime.fromisoformat(data["generated_at"])).total_seconds() / 3600
     OUT.write_text(json.dumps(data, separators=(",", ":")))
