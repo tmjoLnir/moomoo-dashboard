@@ -143,7 +143,8 @@
     }));
 
     // chart needs to be in the DOM to size itself
-    requestAnimationFrame(() => buildChart(el, s));
+    if (s.bars && s.bars.t && s.bars.t.length > 1) requestAnimationFrame(() => buildChart(el, s));
+    else $(".chart-col", el).textContent = "Chart unavailable for this refresh.";
     return el;
   }
 

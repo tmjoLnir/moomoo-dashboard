@@ -61,7 +61,9 @@ class YahooProvider:
         out = {}
         for t in tickers:
             try:
-                df = raw[t.replace(".", "-")] if len(tickers) > 1 else raw
+                sym = t.replace(".", "-")
+                # group_by="ticker" gives (ticker, field) columns, even for one ticker in recent yfinance
+                df = raw[sym] if getattr(raw.columns, "nlevels", 1) > 1 else raw
                 df = df.rename(columns=str.lower)[["open", "high", "low", "close", "volume"]].dropna()
                 out[t] = df
             except KeyError:

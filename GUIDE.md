@@ -150,6 +150,42 @@ the first successful run replaces it.
 - Screener and analyst calls are rate-limited per 30 s. The provider backs off
   automatically, and a run takes about 2–5 minutes.
 
+## 7b. moomoo data via the Claude MCP connector (on demand, no PC needed)
+
+If you have the **moomoo connector** in Claude, a Claude cloud session can fetch the data
+instead of OpenD on your PC. It runs as an **on-demand scheduled task** called
+*moomoo MCP dashboard refresh*.
+
+**How to run it**
+1. Open claude.ai → **Scheduled tasks** → *moomoo MCP dashboard refresh* → **Run now**,
+   or ask Claude in any session: "fire the moomoo MCP dashboard refresh task".
+2. About 5–10 minutes later the site shows *source: moomoo (Claude MCP snapshot)*.
+   You get a notification when the run finishes.
+
+**What a run does**
+1. Screens the top 200 US stocks by market cap (≥ $10B, price ≥ $5) with
+   `quote_stock_screen`, which returns price, market cap, rating and target.
+2. Drops stocks listed less than 330 days ago (`quote_stock_basicinfo`): they can't
+   have a 200-day average yet.
+3. Pre-ranks on analyst data and takes the best 15.
+4. For those 15, fetches analyst consensus and about 370 daily K-lines.
+5. Scores them with `scripts/scoring.py`, the same rules as every other source.
+6. Publishes to the `moomoo-data` branch and triggers *Refresh data & deploy*.
+
+All number handling happens in `scripts/mcp_build.py`, which reads the raw tool output.
+Claude Code saves large tool results to files, so nothing is copied by hand.
+
+**Things to know**
+- **Cost:** each run uses Claude usage, roughly 50–100k tokens. That's why it's
+  on demand rather than every 30 minutes.
+- **How long a snapshot lasts:** 24 hours (`valid_minutes` in the data). After that,
+  the site goes back to Yahoo until the next run.
+- **Charts:** they use moomoo's daily K-lines, about 370 trading days (~1.5 years).
+  So the 5Y tab shows that full span, not 5 years.
+- **Pre-listing filter:** recent listings (e.g. SPCX, SKHY, ANT in Nov 2026) are
+  skipped. Their short history would also land inline in the session instead of in
+  a file, which costs far more tokens.
+
 ## 8. Customise
 
 | What | Where |
@@ -170,6 +206,7 @@ the first successful run replaces it.
 | Deploy job: "Branch … is not allowed to deploy" | You ran it from a non-default branch. Merge to `main` first. |
 | Banner: "ranking is N days old" | Refreshes are failing. Open the latest run's log. The page keeps the last good data meanwhile. |
 | Yahoo errors / 429 in log | Yahoo throttles shared runner IPs sometimes. The next run usually succeeds, and the old data stays live. |
+| MCP task: site still says Yahoo | Check the task run's transcript. The snapshot must be < 24 h old, and PR #3 (workflow split) must be merged into `main`. |
 | `OpenD not reachable` | OpenD isn't running or logged in on the runner PC, or it's on a different port. Set `MOOMOO_OPEND_HOST`/`PORT`. |
 | Site says Yahoo though `DATA_PROVIDER=moomoo` | The moomoo ranking is over 45 min old: check that the PC is on and that *Refresh moomoo data* runs are green. |
 | Moomoo run stuck in "Queued" | No self-hosted runner is online. That's harmless now (the site keeps deploying with Yahoo), but start the runner on your PC. |

@@ -1,5 +1,9 @@
 """Use the moomoo ranking from the `moomoo-data` branch if it is fresh enough.
 
+Freshness: the data's own `valid_minutes` if present (on-demand MCP snapshots set 24h),
+otherwise --max-age-min. If the ranking carries no price bars (MCP snapshots don't, to
+keep Claude token use low), chart bars for the 5 tickers are added from Yahoo here.
+
 Writes site/data/dashboard.json and prints used=true|false to $GITHUB_OUTPUT.
 Never fails the job: any problem just means "not used", and the workflow runs Yahoo.
 
@@ -13,6 +17,22 @@ import subprocess
 from pathlib import Path
 
 OUT = Path(__file__).resolve().parent.parent / "site" / "data" / "dashboard.json"
+
+
+def add_bars(data: dict, tickers: list[str]) -> None:
+    """Fill top[i]['bars'] with 5y daily OHLCV from Yahoo for tickers that lack them."""
+    import sys
+    sys.path.insert(0, str(Path(__file__).resolve().parent))
+    from providers.yahoo_provider import YahooProvider
+    from refresh import CHART_YEARS, pack_bars
+
+    bars = YahooProvider().bars_many(tickers, CHART_YEARS)
+    for t in data["top"]:
+        df = bars.get(t["ticker"])
+        if t["ticker"] in tickers:
+            if df is None or df.empty:
+                raise RuntimeError(f"no Yahoo bars for {t['ticker']}")
+            t["bars"] = pack_bars(df)
 
 
 def decide(branch: str, max_age_min: float) -> tuple[bool, str]:
@@ -29,8 +49,15 @@ def decide(branch: str, max_age_min: float) -> tuple[bool, str]:
         return False, f"unreadable data on {branch}: {e}"
     if data.get("provider") != "moomoo" or len(data.get("top", [])) < 5:
         return False, "data on branch is not a complete moomoo ranking"
-    if age > max_age_min:
-        return False, f"moomoo data is {age:.0f} min old (limit {max_age_min:.0f}); PC/OpenD probably offline"
+    limit = float(data.get("valid_minutes") or max_age_min)
+    if age > limit:
+        return False, f"moomoo data is {age:.0f} min old (limit {limit:.0f}); refresh source probably offline"
+    missing = [t["ticker"] for t in data["top"] if not t.get("bars")]
+    if missing:
+        try:
+            add_bars(data, missing)
+        except Exception as e:
+            return False, f"moomoo ranking found but chart bars could not be added: {e}"
     OUT.write_text(json.dumps(data, separators=(",", ":")))
     return True, f"using moomoo data from {data['generated_at']} ({age:.0f} min old)"
 
