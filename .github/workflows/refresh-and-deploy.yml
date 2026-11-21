@@ -1,20 +1,27 @@
 name: Refresh data & deploy
 
-# Recomputes the top-5 ranking and publishes the site to GitHub Pages.
-#  - schedule: every 30 min during US market hours (Mon-Fri) + once overnight
-#  - workflow_dispatch: the "Recompute ranking" button on the dashboard links here
-#  - push to main: redeploy after code changes
+# Builds the ranking and publishes the site to GitHub Pages. Always runs on
+# GitHub-hosted runners, so it can never get stuck waiting for your PC.
+#
+# Data source, decided on every run:
+#   1. fresh moomoo ranking on the `moomoo-data` branch (< 45 min old), published by
+#      "Refresh moomoo data (self-hosted)" on your PC, else
+#   2. recompute with Yahoo Finance (free fallback), else
+#   3. re-publish whatever is live now (keep_last_good.py).
 on:
   schedule:
     - cron: "*/30 13-21 * * 1-5"   # 13:00-21:30 UTC ~ US session (EST/EDT)
     - cron: "17 2 * * *"           # overnight run so weekend data still settles
   workflow_dispatch:
     inputs:
-      provider:
-        description: "Data provider"
+      source:
+        description: "auto = moomoo if fresh, else Yahoo; yahoo = always recompute with Yahoo"
         type: choice
-        options: [auto, moomoo, yahoo]
+        options: [auto, yahoo]
         default: auto
+  workflow_run:                    # deploy right after each successful moomoo refresh
+    workflows: ["Refresh moomoo data (self-hosted)"]
+    types: [completed]
   push:
     branches: [main]
 
@@ -23,27 +30,21 @@ permissions:
   pages: write
   id-token: write
 
+# Safe at workflow level now: every job here runs on GitHub-hosted runners, so a
+# queued run always starts within seconds and can't block later ones.
 concurrency:
   group: pages
   cancel-in-progress: false
 
-env:
-  # Repo variable DATA_PROVIDER (Settings > Secrets and variables > Actions > Variables):
-  #   yahoo  (default) - free, runs on GitHub's servers
-  #   moomoo           - runs on YOUR self-hosted runner where moomoo OpenD is logged in
-  PROVIDER: ${{ github.event.inputs.provider != 'auto' && github.event.inputs.provider || vars.DATA_PROVIDER || 'yahoo' }}
-
 jobs:
   build:
-    # moomoo needs OpenD, which only exists on your own machine -> self-hosted runner.
-    runs-on: ${{ (github.event.inputs.provider != 'auto' && github.event.inputs.provider || vars.DATA_PROVIDER || 'yahoo') == 'moomoo' && 'self-hosted' || 'ubuntu-latest' }}
+    if: github.event_name != 'workflow_run' || github.event.workflow_run.conclusion == 'success'
+    runs-on: ubuntu-latest
     timeout-minutes: 30
     steps:
       - uses: actions/checkout@v4
 
-      - name: Set up Python (GitHub-hosted only; self-hosted uses your installed Python)
-        if: runner.environment == 'github-hosted'
-        uses: actions/setup-python@v5
+      - uses: actions/setup-python@v5
         with:
           python-version: "3.12"
           cache: pip
@@ -51,18 +52,20 @@ jobs:
       - name: Install dependencies
         run: python -m pip install -r requirements.txt
 
-      - name: Install moomoo SDK (moomoo path only)
-        if: env.PROVIDER == 'moomoo'
-        run: python -m pip install -r requirements-moomoo.txt
-
       - name: Configure Pages
         id: pages
         uses: actions/configure-pages@v5
 
-      - name: Recompute ranking
+      - name: Use fresh moomoo data if available
+        id: moomoo
+        if: inputs.source != 'yahoo'
+        run: python scripts/use_moomoo_data.py --max-age-min 45
+
+      - name: Recompute ranking with Yahoo
         id: refresh
+        if: steps.moomoo.outputs.used != 'true'
         continue-on-error: true
-        run: python scripts/refresh.py --provider ${{ env.PROVIDER }}
+        run: python scripts/refresh.py --provider yahoo
 
       - name: Keep last good data if the refresh failed
         if: steps.refresh.outcome == 'failure'

@@ -8,13 +8,14 @@ step lists what to do and why.
 ## 0. How it fits together
 
 ```
- ┌──────────────── GitHub Actions (scheduled every 30 min in US hours, or "Run workflow") ───────────────┐
- │                                                                                                       │
- │  scripts/refresh.py ──► provider ──► scoring.py ──► site/data/dashboard.json ──► deploy to Pages      │
- │                         │                                                                             │
- │                         ├─ moomoo  (self-hosted runner on YOUR PC, talks to moomoo OpenD)             │
- │                         └─ yahoo   (GitHub's servers, free fallback when your PC is off)              │
- └───────────────────────────────────────────────────────────────────────────────────────────────────────┘
+ YOUR PC (optional)                                   GITHUB'S SERVERS
+ ┌─────────────────────────────────────┐              ┌──────────────────────────────────────────────────┐
+ │ "Refresh moomoo data (self-hosted)" │   pushes     │ "Refresh data & deploy" (every 30 min, US hours) │
+ │  OpenD ─► refresh.py --provider     │ ──────────►  │  1. moomoo-data < 45 min old?  use it            │
+ │           moomoo                    │ moomoo-data  │  2. else recompute with Yahoo                    │
+ │  (if the PC is off it just waits;   │   branch     │  3. else re-publish what's live now              │
+ │   it can't block the site)          │ + triggers   │  ─► deploy site/ to GitHub Pages                 │
+ └─────────────────────────────────────┘   deploy     └──────────────────────────────────────────────────┘
                                              │
         browser ──► https://<user>.github.io/moomoo-dashboard/  (static HTML + JS reads dashboard.json)
 ```
@@ -32,6 +33,10 @@ step lists what to do and why.
    you're logged in to moomoo. GitHub's cloud runners can't do that, so the moomoo
    path runs on your PC as a self-hosted runner. Yahoo is the free fallback that
    needs no account.
+   - The two halves are **separate workflows**. Your PC only publishes data to the
+     `moomoo-data` branch; the site is always deployed from GitHub's servers.
+   - So when your PC is off, its job waits in its own queue, and the site falls back
+     to Yahoo after 45 minutes instead of freezing.
 4. **The moomoo MCP connector** (the one Claude uses in chat) is for interactive
    questions. It can't be called from a website or a CI job, so the pipeline uses
    the same data through the official API instead.
@@ -54,7 +59,8 @@ paid plan (Pro/Team) to publish Pages.
 ## 2. What's in the repo
 
 ```
-.github/workflows/refresh-and-deploy.yml   # schedule + build + deploy
+.github/workflows/refresh-and-deploy.yml   # schedule + build + deploy (GitHub-hosted only)
+.github/workflows/refresh-moomoo.yml       # moomoo refresh on your PC -> moomoo-data branch
 scripts/refresh.py                         # pipeline entry point
 scripts/scoring.py                         # the blended score (weights, rules, filters)
 scripts/providers/moomoo_provider.py       # moomoo OpenAPI via OpenD
@@ -62,6 +68,8 @@ scripts/providers/yahoo_provider.py        # free fallback
 scripts/providers/demo_provider.py         # synthetic data for offline testing
 scripts/universe_us_large.txt              # ticker universe for the Yahoo path
 scripts/keep_last_good.py                  # if a refresh fails, keep yesterday's ranking live
+scripts/publish_data_branch.py             # PC side: push dashboard.json to moomoo-data
+scripts/use_moomoo_data.py                 # deploy side: use moomoo data if < 45 min old
 site/index.html, site/assets/*             # the dashboard (vanilla JS + Lightweight Charts, vendored)
 site/data/dashboard.json                   # generated data (committed copy is a demo seed)
 requirements.txt / requirements-moomoo.txt
@@ -101,7 +109,7 @@ so there's no commit spam.
 
 ## 6. First deploy
 
-1. **Actions → Refresh data & deploy → Run workflow** (branch `main`, provider `auto`).
+1. **Actions → Refresh data & deploy → Run workflow** (branch `main`, source `auto`).
 2. Wait about 3–6 minutes. The Yahoo path pulls analyst data for about 120 tickers.
 3. Open `https://tmjolnir.github.io/moomoo-dashboard/`.
 
@@ -120,16 +128,22 @@ the first successful run replaces it.
    New self-hosted runner**, choose your OS, and run the commands it shows.
    Install it as a service (`./svc.sh install` on macOS/Linux, or say yes to "run as
    service" on Windows) so it survives reboots.
-4. **Tell the workflow to use it.** Repo → **Settings → Secrets and variables → Actions →
+4. **Turn on the scheduled moomoo refresh.** Repo → **Settings → Secrets and variables → Actions →
    Variables → New variable**: `DATA_PROVIDER` = `moomoo`.
-5. Run the workflow again. The header should now say *source: moomoo OpenAPI (via OpenD)*.
+   - Without this variable, *Refresh moomoo data (self-hosted)* only runs when you start
+     it by hand, so nothing queues before your runner exists.
+5. **Test it.** Actions → **Refresh moomoo data (self-hosted)** → Run workflow.
+   - It pushes `dashboard.json` to the `moomoo-data` branch, which triggers a deploy.
+   - The page header should then say *source: moomoo OpenAPI (via OpenD)*.
 
 **Trade-offs to know about**
 
-- The PC (and OpenD) has to be **on and logged in** during market hours. If it's off,
-  scheduled jobs wait in the queue. To use moomoo only some of the time, leave
-  `DATA_PROVIDER` unset (Yahoo on schedule) and pick `moomoo` manually in
-  *Run workflow*.
+- The PC (and OpenD) has to be **on and logged in** for moomoo data. When it's off,
+  the site switches to Yahoo once the last moomoo ranking is 45 minutes old, and
+  switches back on the next moomoo refresh.
+  - A moomoo job waiting for an offline PC is replaced by the next scheduled one, so
+    stale jobs don't pile up.
+  - Change the 45-minute limit with `--max-age-min` in `refresh-and-deploy.yml`.
 - moomoo limits **historical K-line quota** by the number of *distinct* symbols per
   30 days. The pipeline shortlists on analyst data first, so only about 25 symbols get
   history per run. Lower `shortlist_size` in `moomoo_provider.py` if you hit the quota.
@@ -144,7 +158,8 @@ the first successful run replaces it.
 | Filters (price, market cap, analyst count) | `scripts/scoring.py` top constants |
 | Universe size | `--universe` in the workflow (default 120) |
 | Yahoo tickers | `scripts/universe_us_large.txt` |
-| Refresh schedule | `cron:` lines in the workflow (UTC) |
+| Refresh schedule | `cron:` lines in both workflows (UTC) |
+| How long moomoo data counts as fresh | `--max-age-min` in `refresh-and-deploy.yml` (default 45) |
 | Chart ranges/colours | `site/assets/app.js` (`RANGES`), `site/assets/style.css` (`--up`, `--down`) |
 
 ## 9. Troubleshooting
@@ -156,6 +171,8 @@ the first successful run replaces it.
 | Banner: "ranking is N days old" | Refreshes are failing. Open the latest run's log. The page keeps the last good data meanwhile. |
 | Yahoo errors / 429 in log | Yahoo throttles shared runner IPs sometimes. The next run usually succeeds, and the old data stays live. |
 | `OpenD not reachable` | OpenD isn't running or logged in on the runner PC, or it's on a different port. Set `MOOMOO_OPEND_HOST`/`PORT`. |
+| Site says Yahoo though `DATA_PROVIDER=moomoo` | The moomoo ranking is over 45 min old: check that the PC is on and that *Refresh moomoo data* runs are green. |
+| Moomoo run stuck in "Queued" | No self-hosted runner is online. That's harmless now (the site keeps deploying with Yahoo), but start the runner on your PC. |
 | Scheduled runs stopped | GitHub pauses schedules on public repos after 60 days without commits. Re-enable in Actions. |
 | Cron runs late | GitHub's scheduler can be 5–20 min late at busy times. That's normal. |
 
