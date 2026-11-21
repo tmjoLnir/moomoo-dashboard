@@ -28,7 +28,9 @@ class YahooProvider:
         pass
 
     def candidates(self, universe_size: int = 120) -> list[dict]:
-        tickers = [t.strip() for t in UNIVERSE_FILE.read_text().split() if t.strip() and not t.startswith("#")]
+        # strip "# comment" text per line *before* splitting, so comment words never become tickers
+        lines = (ln.split("#", 1)[0] for ln in UNIVERSE_FILE.read_text().splitlines())
+        tickers = list(dict.fromkeys(t for ln in lines for t in ln.split()))
         tickers = tickers[:universe_size]
         rows = []
         for t in tickers:
@@ -55,7 +57,7 @@ class YahooProvider:
     def bars_many(self, tickers: list[str], years: float = 2) -> dict[str, pd.DataFrame]:
         period = "5y" if years > 2 else "2y"
         raw = self.yf.download([t.replace(".", "-") for t in tickers], period=period, interval="1d",
-                               auto_adjust=True, group_by="ticker", progress=False, threads=True)
+                               auto_adjust=True, group_by="ticker", progress=False, threads=False)
         out = {}
         for t in tickers:
             try:
