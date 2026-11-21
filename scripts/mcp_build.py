@@ -1,18 +1,20 @@
 """Build the dashboard ranking from moomoo data fetched through the Claude moomoo MCP connector.
 
-Used by the on-demand Claude scheduled task (GUIDE.md §7b). The Claude session calls the
+Used by the Claude scheduled task "moomoo MCP dashboard refresh" (GUIDE.md §5), the site's only
+data source. The Claude session calls the
 MCP tools; this script reads their raw JSON output (Claude Code saves large tool results
 to files, so numbers never need to be copied by hand) and does all scaling and scoring
-with scoring.py, the same rules as every other provider.
+with scoring.py.
 
 Steps (all paths default to the mcp/ folder):
   1. screen     <saved quote_stock_screen result>...     -> mcp/universe.json
   2. shortlist --check-listing                           -> codes to pass to quote_stock_basicinfo
-     listing    <quote_stock_basicinfo result>           -> drops listings < 330 days old
+     listing    <saved quote_stock_basicinfo result>     -> drops listings < 330 days old
      shortlist  [--n 15]                                 -> codes to fetch details for
   3. add-consensus <code> <file or inline JSON>          -> mcp/details.json
      add-kline     <code> <saved quote_history_kline result (num=370)>
   4. finalize                                            -> mcp/dashboard.json
+  5. (task) publish_data_branch.py mcp/dashboard.json moomoo-data, then dispatch the deploy
 """
 from __future__ import annotations
 
@@ -27,7 +29,6 @@ import scoring  # noqa: E402
 
 DIR = Path("mcp")
 UNIVERSE, DETAILS, OUT = DIR / "universe.json", DIR / "details.json", DIR / "dashboard.json"
-VALID_MINUTES = 24 * 60  # an on-demand snapshot stays on the site for a day, then Yahoo resumes
 
 # (result kind, factor name, indicator params) -> (field, divisor). Scaling per the screener docs.
 FIELDS = {
@@ -37,7 +38,7 @@ FIELDS = {
     ("featured_property", 5403, None): ("target_mean", 1e9),
 }
 # Technicals (RSI14, 50/200-day MA, up-volume share) are computed from the K-lines with
-# scoring.technicals(), like every other provider. The screener's MA factor ignored the
+# scoring.technicals(). The screener's MA factor ignored the
 # requested period in testing, so it is not used.
 SCREEN_RETRIEVE = [  # what the task passes as retrieve_queries
     {"simple_property": {"name": 2201}}, {"simple_property": {"name": 2301}},
@@ -198,7 +199,6 @@ def cmd_finalize():
         "provider": "moomoo",
         "source": "mcp",
         "provider_label": "moomoo (Claude MCP snapshot)",
-        "valid_minutes": VALID_MINUTES,
         "universe_size": len(load(UNIVERSE, [])),
         "shortlist_size": len(det),
         "scored_count": len(scored),
