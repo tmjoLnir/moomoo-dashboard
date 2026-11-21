@@ -51,9 +51,12 @@ SCREEN_QUERIES = [  # what the task passes as screen_queries: US, market cap >= 
 
 
 def read_json(arg: str):
-    """A path to a saved tool result, or the JSON text itself."""
-    p = Path(arg)
-    text = p.read_text() if p.exists() else arg
+    """A path to a saved tool result, or the JSON text itself.
+
+    Inline JSON is detected first: a long JSON string passed to Path.exists() raises
+    OSError "File name too long" (seen with basicinfo for 25 codes).
+    """
+    text = arg if arg.lstrip().startswith(("{", "[")) else Path(arg).read_text()
     d = json.loads(text)
     return d.get("data", d) if isinstance(d, dict) else d
 
