@@ -1,6 +1,6 @@
 """Blended "buy potential" score.
 
-Every provider (moomoo, yahoo) hands this module the same raw inputs:
+scripts/mcp_build.py hands this module the moomoo inputs:
   - price, market cap
   - analyst average target price, analyst count, a 0..1 consensus rating
   - daily OHLCV bars (pandas DataFrame, >= ~220 rows for the 200-day average)

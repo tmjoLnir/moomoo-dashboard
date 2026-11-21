@@ -1,9 +1,9 @@
-/* Top-5 buy-potential dashboard. Reads data/dashboard.json (written by scripts/refresh.py). */
+/* Top-5 buy-potential dashboard. Reads data/dashboard.json: a moomoo MCP snapshot built by scripts/mcp_build.py. */
 (() => {
   "use strict";
   const LWC = window.LightweightCharts;
   const DATA_URL = "data/dashboard.json";
-  const WORKFLOW_FILE = "refresh-and-deploy.yml";
+  const STALE_DAYS = 8; // weekly task + a day of slack
   const RANGES = ["1M", "3M", "YTD", "1Y", "5Y"];
   const charts = []; // {chart, series..., rerender}
 
@@ -21,12 +21,12 @@
     return String(Math.round(x));
   };
 
-  // ---- link to the GitHub Actions "Run workflow" page ----------------------
-  function workflowUrl() {
+  // ---- link to the guide section on refreshing the moomoo snapshot ---------
+  function guideUrl() {
     const m = location.hostname.match(/^([^.]+)\.github\.io$/);
     if (!m) return "https://github.com";
     const repo = location.pathname.split("/").filter(Boolean)[0] || `${m[1]}.github.io`;
-    return `https://github.com/${m[1]}/${repo}/actions/workflows/${WORKFLOW_FILE}`;
+    return `https://github.com/${m[1]}/${repo}/blob/main/GUIDE.md#5-how-to-refresh-the-ranking`;
   }
 
   // ---- data ----------------------------------------------------------------
@@ -52,13 +52,10 @@
       `${d.universe_size} stocks screened, ${d.scored_count} scored`;
 
     const banner = $("#banner");
-    const stale = (Date.now() - when.getTime()) / 36e5 > 72;
-    if (d.provider === "demo") {
+    const ageDays = (Date.now() - when.getTime()) / 864e5;
+    if (ageDays > STALE_DAYS) {
       banner.hidden = false;
-      banner.textContent = "DEMO DATA: synthetic prices for layout testing. The first scheduled refresh replaces it with real data.";
-    } else if (stale) {
-      banner.hidden = false;
-      banner.textContent = `This ranking is ${ago(d.generated_at)}: the scheduled refresh may be failing. Check the Actions tab.`;
+      banner.textContent = `This ranking is from ${ago(d.generated_at)}. The weekly moomoo refresh may have failed; run the "moomoo MCP dashboard refresh" task in Claude.`;
     } else banner.hidden = true;
 
     // ranking strip
@@ -273,7 +270,7 @@
     finally { btn.disabled = false; btn.textContent = "Reload data"; }
   }
 
-  $("#run-refresh").href = workflowUrl();
+  $("#run-refresh").href = guideUrl();
   $("#reload").addEventListener("click", () => refresh(true));
   refresh(true);
   // pick up new data automatically if the tab is left open (only redraws when the ranking changed)

@@ -1,7 +1,7 @@
 """Publish one dashboard.json as the only file on a data branch (force-pushed, no history).
 
 Uses git plumbing, so it never touches the working tree or the checked-out branch,
-and works the same on Windows, macOS and Linux self-hosted runners.
+and works on any OS.
 
   python scripts/publish_data_branch.py <json file> <branch> [remote]
 """

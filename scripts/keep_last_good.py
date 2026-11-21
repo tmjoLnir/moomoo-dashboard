@@ -1,4 +1,4 @@
-"""If today's refresh failed, re-publish the data that is live right now instead of the repo's seed file."""
+"""If the moomoo snapshot couldn't be loaded, re-publish the data that is live right now instead of the repo's seed file."""
 import json
 import sys
 import urllib.request
@@ -11,6 +11,6 @@ try:
         data = json.loads(r.read())
     assert data.get("top"), "no ranking in live data"
     OUT.write_text(json.dumps(data, separators=(",", ":")))
-    print(f"refresh failed; kept live data from {data.get('generated_at')}")
+    print(f"snapshot not loaded; kept live data from {data.get('generated_at')}")
 except Exception as e:  # first deploy, or site not reachable: keep the committed seed
-    print(f"refresh failed and live data unavailable ({e}); publishing committed seed")
+    print(f"snapshot not loaded and live data unavailable ({e}); publishing committed seed")

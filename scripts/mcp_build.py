@@ -3,7 +3,7 @@
 Used by the on-demand Claude scheduled task (GUIDE.md §7b). The Claude session calls the
 MCP tools; this script reads their raw JSON output (Claude Code saves large tool results
 to files, so numbers never need to be copied by hand) and does all scaling and scoring
-with scoring.py, the same rules as every other provider.
+with scoring.py.
 
 Steps (all paths default to the mcp/ folder):
   1. screen     <saved quote_stock_screen result>...     -> mcp/universe.json
@@ -27,7 +27,6 @@ import scoring  # noqa: E402
 
 DIR = Path("mcp")
 UNIVERSE, DETAILS, OUT = DIR / "universe.json", DIR / "details.json", DIR / "dashboard.json"
-VALID_MINUTES = 24 * 60  # an on-demand snapshot stays on the site for a day, then Yahoo resumes
 
 # (result kind, factor name, indicator params) -> (field, divisor). Scaling per the screener docs.
 FIELDS = {
@@ -37,7 +36,7 @@ FIELDS = {
     ("featured_property", 5403, None): ("target_mean", 1e9),
 }
 # Technicals (RSI14, 50/200-day MA, up-volume share) are computed from the K-lines with
-# scoring.technicals(), like every other provider. The screener's MA factor ignored the
+# scoring.technicals(). The screener's MA factor ignored the
 # requested period in testing, so it is not used.
 SCREEN_RETRIEVE = [  # what the task passes as retrieve_queries
     {"simple_property": {"name": 2201}}, {"simple_property": {"name": 2301}},
@@ -198,7 +197,6 @@ def cmd_finalize():
         "provider": "moomoo",
         "source": "mcp",
         "provider_label": "moomoo (Claude MCP snapshot)",
-        "valid_minutes": VALID_MINUTES,
         "universe_size": len(load(UNIVERSE, [])),
         "shortlist_size": len(det),
         "scored_count": len(scored),
