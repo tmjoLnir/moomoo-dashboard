@@ -59,7 +59,17 @@ site/data/dashboard.json                   # seed copy of a real moomoo snapshot
 requirements.txt                           # pandas, numpy (used by mcp_build.py)
 ```
 
-## 3. View it locally (optional)
+## 3. Install the Python requirements
+
+```bash
+python -m pip install -r requirements.txt
+```
+
+Use `python -m pip`, not bare `pip`. In some environments (including Claude cloud sessions)
+`pip` belongs to a different Python than `python`, so a bare `pip install` succeeds but
+the scripts still fail with `ModuleNotFoundError: No module named 'pandas'`.
+
+## 3a. View it locally (optional)
 
 ```bash
 python -m http.server 8000 -d site      # open http://localhost:8000
@@ -135,6 +145,7 @@ Claude Code saves large tool results to files, so nothing is copied by hand.
 
 | Symptom | Fix |
 |---|---|
+| `ModuleNotFoundError: No module named 'pandas'` | Requirements went to a different Python. Run `python -m pip install -r requirements.txt`. |
 | Task report: "moomoo connector not available" | Attach the moomoo connector to the task in claude.ai. |
 | Banner: "This ranking is N days old" | The weekly run failed or was skipped. Run the task on demand and read its report. |
 | Site didn't change after a run | Check that the task's report shows the deploy run, and that its log has "using moomoo data from …". |

@@ -16,8 +16,16 @@ Change a number here and the page updates itself.
 from __future__ import annotations
 
 import math
+import sys
 
-import pandas as pd
+try:
+    import pandas as pd
+except ModuleNotFoundError:  # `pip` may belong to a different Python than `python`
+    sys.exit(
+        f"pandas is not installed for this Python ({sys.executable}).\n"
+        "Install the requirements with the same interpreter:\n"
+        "    python -m pip install -r requirements.txt"
+    )
 
 # ---- Stage 3 weights (must sum to 1.0) ----------------------------------------
 WEIGHTS = {
