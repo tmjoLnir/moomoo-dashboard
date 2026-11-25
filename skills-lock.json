@@ -1,0 +1,41 @@
+{
+  "version": 2,
+  "skills": {
+    "moomoo-comment-sentiment": {
+      "source": "MoomooOpen/moomoo-agent-hub",
+      "ref": "main",
+      "commit": "9e4554621f03f266cb495abec16261b34f565ae1",
+      "sourceType": "github",
+      "skillPath": "skills/search-skills/moomoo-comment-sentiment/SKILL.md",
+      "computedHash": "012cd0d67914834f0bbc3c416fb4d5ab248072903ce19275f6db222ef687ff82",
+      "installMode": "copy"
+    },
+    "moomoo-grid-strategy": {
+      "source": "MoomooOpen/moomoo-agent-hub",
+      "ref": "main",
+      "commit": "9e4554621f03f266cb495abec16261b34f565ae1",
+      "sourceType": "github",
+      "skillPath": "skills/strategy-skills/moomoo-grid-strategy/SKILL.md",
+      "computedHash": "f4c693ce3c921ada90391507b008f13fb51eff630a3cf9cc1e778324b8889540",
+      "installMode": "copy"
+    },
+    "moomoo-news-search": {
+      "source": "MoomooOpen/moomoo-agent-hub",
+      "ref": "main",
+      "commit": "9e4554621f03f266cb495abec16261b34f565ae1",
+      "sourceType": "github",
+      "skillPath": "skills/search-skills/moomoo-news-search/SKILL.md",
+      "computedHash": "a77eb74e6b05dfca934ac20dc376b7a680c953f85a3120715915603a00e7ece5",
+      "installMode": "copy"
+    },
+    "moomoo-stock-digest": {
+      "source": "MoomooOpen/moomoo-agent-hub",
+      "ref": "main",
+      "commit": "9e4554621f03f266cb495abec16261b34f565ae1",
+      "sourceType": "github",
+      "skillPath": "skills/search-skills/moomoo-stock-digest/SKILL.md",
+      "computedHash": "a8090b99c846fe92649cb650369e09ecb14a7404159be63bd7b564085068260f",
+      "installMode": "copy"
+    }
+  }
+}
