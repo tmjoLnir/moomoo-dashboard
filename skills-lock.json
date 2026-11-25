@@ -1,0 +1,104 @@
+{
+  "version": 2,
+  "skills": {
+    "moomoo-comment-sentiment": {
+      "source": "MoomooOpen/moomoo-agent-hub",
+      "ref": "main",
+      "commit": "9e4554621f03f266cb495abec16261b34f565ae1",
+      "sourceType": "github",
+      "skillPath": "skills/search-skills/moomoo-comment-sentiment/SKILL.md",
+      "computedHash": "012cd0d67914834f0bbc3c416fb4d5ab248072903ce19275f6db222ef687ff82",
+      "installMode": "copy"
+    },
+    "moomoo-crypto": {
+      "source": "MoomooOpen/moomoo-agent-hub",
+      "ref": "main",
+      "commit": "9e4554621f03f266cb495abec16261b34f565ae1",
+      "sourceType": "github",
+      "skillPath": "skills/quote-trade-skills/moomoo-crypto/SKILL.md",
+      "computedHash": "84a4f531d8f1bd19d55b08b2f6e26644914f7895ef9e547405c908ba18a2cba3",
+      "installMode": "copy"
+    },
+    "moomoo-grid-strategy": {
+      "source": "MoomooOpen/moomoo-agent-hub",
+      "ref": "main",
+      "commit": "9e4554621f03f266cb495abec16261b34f565ae1",
+      "sourceType": "github",
+      "skillPath": "skills/strategy-skills/moomoo-grid-strategy/SKILL.md",
+      "computedHash": "f4c693ce3c921ada90391507b008f13fb51eff630a3cf9cc1e778324b8889540",
+      "installMode": "copy"
+    },
+    "moomoo-news-search": {
+      "source": "MoomooOpen/moomoo-agent-hub",
+      "ref": "main",
+      "commit": "9e4554621f03f266cb495abec16261b34f565ae1",
+      "sourceType": "github",
+      "skillPath": "skills/search-skills/moomoo-news-search/SKILL.md",
+      "computedHash": "a77eb74e6b05dfca934ac20dc376b7a680c953f85a3120715915603a00e7ece5",
+      "installMode": "copy"
+    },
+    "moomoo-quote": {
+      "source": "MoomooOpen/moomoo-agent-hub",
+      "ref": "main",
+      "commit": "9e4554621f03f266cb495abec16261b34f565ae1",
+      "sourceType": "github",
+      "skillPath": "skills/quote-trade-skills/moomoo-quote/SKILL.md",
+      "computedHash": "5218c3fcb27717c580e9a66f6e8f179353a7890ff93bcc3913acad56a6e903b7",
+      "installMode": "copy"
+    },
+    "moomoo-sim-trading": {
+      "source": "MoomooOpen/moomoo-agent-hub",
+      "ref": "main",
+      "commit": "9e4554621f03f266cb495abec16261b34f565ae1",
+      "sourceType": "github",
+      "skillPath": "skills/quote-trade-skills/moomoo-sim-trading/SKILL.md",
+      "computedHash": "ea783b145a48ee1453aad28161cde694986b8aeceb63fa898fe8b1ec39cb4582",
+      "installMode": "copy"
+    },
+    "moomoo-stock-digest": {
+      "source": "MoomooOpen/moomoo-agent-hub",
+      "ref": "main",
+      "commit": "9e4554621f03f266cb495abec16261b34f565ae1",
+      "sourceType": "github",
+      "skillPath": "skills/search-skills/moomoo-stock-digest/SKILL.md",
+      "computedHash": "a8090b99c846fe92649cb650369e09ecb14a7404159be63bd7b564085068260f",
+      "installMode": "copy"
+    },
+    "moomoo-trading": {
+      "source": "MoomooOpen/moomoo-agent-hub",
+      "ref": "main",
+      "commit": "9e4554621f03f266cb495abec16261b34f565ae1",
+      "sourceType": "github",
+      "skillPath": "skills/quote-trade-skills/moomoo-trading/SKILL.md",
+      "computedHash": "6944be3df804136a8e1ffe2bb5dc72768f03fec9f0f5f56850b3163fb0c89ad4",
+      "installMode": "copy"
+    },
+    "moomoo-unusual-capital-flows": {
+      "source": "MoomooOpen/moomoo-agent-hub",
+      "ref": "main",
+      "commit": "9e4554621f03f266cb495abec16261b34f565ae1",
+      "sourceType": "github",
+      "skillPath": "skills/unusual-skills/moomoo-unusual-capital-flows/SKILL.md",
+      "computedHash": "9e6cab72a460e50a16544d11b05660db184a6a4bd16d02e14c02db75a800cb33",
+      "installMode": "copy"
+    },
+    "moomoo-unusual-derivatives-activity": {
+      "source": "MoomooOpen/moomoo-agent-hub",
+      "ref": "main",
+      "commit": "9e4554621f03f266cb495abec16261b34f565ae1",
+      "sourceType": "github",
+      "skillPath": "skills/unusual-skills/moomoo-unusual-derivatives-activity/SKILL.md",
+      "computedHash": "dbff521777973f02e128402a4647c6c1172414fce5320a7d330f877f299633b0",
+      "installMode": "copy"
+    },
+    "moomoo-unusual-technical-signal-alerts": {
+      "source": "MoomooOpen/moomoo-agent-hub",
+      "ref": "main",
+      "commit": "9e4554621f03f266cb495abec16261b34f565ae1",
+      "sourceType": "github",
+      "skillPath": "skills/unusual-skills/moomoo-unusual-technical-signal-alerts/SKILL.md",
+      "computedHash": "af7f6271eef4efb1e15f13dbd759e4c6abb90273f9ab856ef891e5d408d9d22c",
+      "installMode": "copy"
+    }
+  }
+}
