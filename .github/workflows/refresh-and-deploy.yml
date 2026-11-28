@@ -3,6 +3,8 @@ name: Deploy dashboard
 # Publishes the site with the latest moomoo MCP snapshot from the `moomoo-data` branch.
 # The snapshot is produced by the Claude scheduled task "moomoo MCP dashboard refresh"
 # (on demand, plus your weekly schedule), which dispatches this workflow when it's done.
+# It also publishes the "My trades" panel data from the `trades-data` branch, written by the
+# Claude scheduled task "Daily post-US-close swing-trade check".
 # Nothing here fetches market data itself.
 on:
   workflow_dispatch:
@@ -37,6 +39,16 @@ jobs:
       - name: Keep the live data if the snapshot couldn't be loaded
         if: steps.load.outcome == 'failure'
         run: python scripts/keep_last_good.py "${{ steps.pages.outputs.base_url }}/data/dashboard.json"
+
+      - name: Load latest daily trades snapshot
+        id: trades
+        continue-on-error: true
+        run: python scripts/trades_data.py load
+
+      - name: Keep the live trades data if the snapshot couldn't be loaded
+        if: steps.trades.outcome == 'failure'
+        continue-on-error: true
+        run: curl -fsS "${{ steps.pages.outputs.base_url }}/data/trades.json" -o site/data/trades.json.live && mv site/data/trades.json.live site/data/trades.json || echo "keeping committed trades seed"
 
       - uses: actions/upload-pages-artifact@v3
         with:

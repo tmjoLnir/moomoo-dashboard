@@ -3,7 +3,7 @@
   "use strict";
   const LWC = window.LightweightCharts;
   const DATA_URL = "data/dashboard.json";
-  const STALE_DAYS = 8; // weekly task + a day of slack
+  const STALE_DAYS = 4; // ranking refreshes Tue-Sat; Sat -> Tue is the longest normal gap
   const RANGES = ["1M", "3M", "YTD", "1Y", "5Y"];
   const charts = []; // {chart, series..., rerender}
 
@@ -55,7 +55,7 @@
     const ageDays = (Date.now() - when.getTime()) / 864e5;
     if (ageDays > STALE_DAYS) {
       banner.hidden = false;
-      banner.textContent = `This ranking is from ${ago(d.generated_at)}. The weekly moomoo refresh may have failed; run the "moomoo MCP dashboard refresh" task in Claude.`;
+      banner.textContent = `This ranking is from ${ago(d.generated_at)}. The daily moomoo refresh may have failed; run the "moomoo MCP dashboard refresh" task in Claude.`;
     } else banner.hidden = true;
 
     // Stage 1: market regime

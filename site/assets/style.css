@@ -126,3 +126,31 @@ th { color: var(--muted); font-weight: 600; font-size: .78rem; text-transform: u
   .panel { padding: 12px; }
   table { display: block; overflow-x: auto; }
 }
+
+/* ---- My trades panel (data/trades.json, written by the daily swing-trade check) ---- */
+.trades { margin-top: 16px; }
+.trades-head { display: flex; align-items: baseline; justify-content: space-between; gap: 8px; flex-wrap: wrap; }
+.trades-head h2 { margin: 0; }
+.sec-h { margin: 20px 0 0; }
+.small { font-size: .8rem; }
+.tbl-scroll { overflow-x: auto; margin-top: 12px; }
+.cmp th, .cmp td { white-space: nowrap; font-variant-numeric: tabular-nums; }
+.cmp td.tw { white-space: normal; min-width: 140px; }
+.cmp tbody th { text-transform: none; letter-spacing: 0; font-size: .82rem; }
+.cmp thead th { font-size: .9rem; color: var(--text); }
+.pill { display: inline-block; padding: 1px 8px; border-radius: 999px; font-size: .75rem; font-weight: 700; text-transform: uppercase; letter-spacing: .03em; background: var(--bar-track); color: var(--text-2); }
+.pill.hold, .pill.triggered, .pill.target-hit { background: color-mix(in srgb, var(--up) 18%, transparent); color: var(--up); }
+.pill.exit, .pill.stopped { background: color-mix(in srgb, var(--down) 18%, transparent); color: var(--down); }
+.pill.watch, .pill.watching { background: color-mix(in srgb, var(--accent) 16%, transparent); color: var(--accent); }
+.tcards { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; margin-top: 14px; }
+.tcard { border: 1px solid var(--border); border-radius: 10px; padding: 12px; min-width: 0; }
+.tcard-head { display: flex; justify-content: space-between; align-items: baseline; gap: 8px; }
+.tcard-head b { font-size: 1.05rem; }
+.tchart { height: 170px; width: 100%; margin: 8px 0; }
+.tcard p { margin: 6px 0 0; font-size: .85rem; color: var(--text-2); }
+.tcard .tnote { font-size: .78rem; color: var(--muted); font-style: italic; }
+.tcols { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 16px; }
+.tlist { margin: 0; padding-left: 1.1em; font-size: .85rem; }
+.tlist li { margin: 3px 0; }
+.tlist time { color: var(--muted); font-variant-numeric: tabular-nums; margin-right: 6px; }
+@media (max-width: 860px) { .tcards, .tcols { grid-template-columns: 1fr; } }

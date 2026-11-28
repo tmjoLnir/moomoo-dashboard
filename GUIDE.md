@@ -101,7 +101,7 @@ The ranking is refreshed by the Claude scheduled task **moomoo MCP dashboard ref
 **Run it**
 - **On demand:** claude.ai → **Scheduled tasks** → *moomoo MCP dashboard refresh* →
   **Run now**. Or ask Claude in any session: "fire the moomoo MCP dashboard refresh task".
-- **Weekly:** it also runs every Saturday at 09:00 Singapore time, using Friday's US close.
+- **Daily:** it runs Tue–Sat at 06:45 Singapore time, using the previous US close.
 - **Requirement:** the task must have the **moomoo connector** attached (claude.ai →
   Scheduled tasks → the task → connectors).
 
@@ -130,6 +130,28 @@ Claude Code saves large tool results to files, so nothing is copied by hand.
 - **New listings are skipped:** their short history would also come back inline in the
   session instead of in a file, which costs far more tokens.
 
+## 5a. My trades panel (daily swing-trade check)
+
+The top of the page shows **My swing trades**: a comparison table, mini charts with entry,
+stop and target lines, upcoming events, news and a trade log for the tickers you're trading.
+
+- **Written by:** the Claude scheduled task *Daily post-US-close swing-trade check*
+  (6:15 AM Singapore time, Tue–Sat). It is read-only on moomoo: it never places orders.
+- **Stored on:** the `trades-data` branch, as one force-pushed `trades.json`
+  (same pattern as `moomoo-data`). Don't merge it or open PRs from it.
+- **It doubles as the task's memory.** Each run starts with
+  `python scripts/trades_data.py show` to read yesterday's stops, open trades and log, so
+  the state carries over even though every run is a fresh session.
+- **Publishing:** `python scripts/trades_data.py publish trades.json` validates the file
+  and pushes it, then the task dispatches **Deploy dashboard**.
+- **Schema:** see `site/data/trades.json` (the seed) and `validate()` in
+  `scripts/trades_data.py`. `status` is one of watching / triggered / stopped /
+  target hit / cancelled / closed; `verdict` is hold / exit / watch / stand aside / trim.
+- **Stale warning:** after 4 days (`STALE_DAYS` in `site/assets/trades.js`).
+
+The top-5 ranking task now also runs Tue–Sat (6:45 AM Singapore time), so its stale
+warning is 4 days too.
+
 ## 6. Customise
 
 | What | Where |
@@ -137,7 +159,7 @@ Claude Code saves large tool results to files, so nothing is copied by hand.
 | Score weights and rules | `scripts/scoring.py` → `WEIGHTS`, `score()`, `SCORING_DOC` (the page prints this text) |
 | Filters (price, market cap, analyst count) | `scripts/scoring.py` top constants; screener filters in `mcp_build.py` (`SCREEN_QUERIES`) |
 | Shortlist size | `--n` in the task's instructions (default 15) |
-| When the stale warning appears | `STALE_DAYS` in `site/assets/app.js` |
+| When the stale warning appears | `STALE_DAYS` in `site/assets/app.js` (ranking) and `site/assets/trades.js` (My trades) |
 | Weekly schedule | claude.ai → Scheduled tasks → the task's schedule |
 | Chart ranges/colours | `site/assets/app.js` (`RANGES`), `site/assets/style.css` (`--up`, `--down`) |
 
