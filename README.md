@@ -8,7 +8,9 @@ with a sized trade plan per stock. The scoring rules are printed on the page.
 
 - Live site: https://tmjolnir.github.io/moomoo-dashboard/
 - Data: **moomoo only**, fetched through the moomoo MCP connector by the Claude scheduled
-  task *moomoo MCP dashboard refresh*, which runs on demand and weekly
+  task *moomoo MCP dashboard refresh*, which runs on demand and Tue–Sat
+- **My swing trades** panel: daily read-only trade check for your own tickers, written by
+  the task *Daily post-US-close swing-trade check* to the `trades-data` branch
 - Setup, refreshing and troubleshooting: **[GUIDE.md](GUIDE.md)**
 
 ```bash

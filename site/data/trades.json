@@ -1,0 +1,365 @@
+{
+ "schema": 1,
+ "generated_at": "2026-11-28T07:45:00+00:00",
+ "session_date": "2026-11-27",
+ "session_note": "Half day (US market closed 1 PM ET after Thanksgiving)",
+ "account": {
+  "size": 50000,
+  "risk_pct": 0.5,
+  "risk_usd": 250,
+  "note": "Example account. Fills are not visible to Claude: confirm positions in moomoo."
+ },
+ "tickers": [
+  {
+   "code": "US.NVDA",
+   "ticker": "NVDA",
+   "name": "NVIDIA",
+   "close": 150.49,
+   "change_pct": 0.8,
+   "day_low": 145.39,
+   "day_high": 151.98,
+   "extended": "Pre 151.63 / AH 149.80",
+   "volume_ratio": 0.67,
+   "candle": "Long lower wick, recovered",
+   "status": "watching",
+   "verdict": "stand aside",
+   "entry": null,
+   "stop": null,
+   "targets": [],
+   "shares": 0,
+   "levels": {
+    "support": [
+     145.39,
+     141.17,
+     124.5
+    ],
+    "resistance": [
+     151.98,
+     159.92,
+     165.05,
+     171.5
+    ]
+   },
+   "plan": "Stand aside until Huang's House testimony on Dec 1. Earliest long after that: daily close above $151.98, stop under $145.39. Reward to $159.92 is only ~1.1R, so wait for price to clear $152.",
+   "bars": {
+    "t": [
+     "2026-11-13",
+     "2026-11-16",
+     "2026-11-17",
+     "2026-11-18",
+     "2026-11-19",
+     "2026-11-20",
+     "2026-11-23",
+     "2026-11-24",
+     "2026-11-25",
+     "2026-11-27"
+    ],
+    "o": [
+     169.905,
+     159.015,
+     156.895,
+     159.19,
+     152.915,
+     143.52,
+     167.035,
+     159.1,
+     144.06,
+     151.895
+    ],
+    "h": [
+     170,
+     163.2,
+     158.19,
+     159.7,
+     158.1301,
+     143.725,
+     171.5,
+     159.92,
+     150.37,
+     151.98
+    ],
+    "l": [
+     158.39,
+     155.01,
+     150.3301,
+     150.4,
+     145.71,
+     124.5,
+     156.93,
+     150.5,
+     141.17,
+     145.39
+    ],
+    "c": [
+     162.85,
+     156.14,
+     155.46,
+     150.96,
+     145.98,
+     125.53,
+     165.05,
+     155.38,
+     149.3,
+     150.49
+    ],
+    "v": [
+     365796552,
+     333822062,
+     406985086,
+     349791392,
+     322940099,
+     633418432,
+     782593289,
+     386223640,
+     366571889,
+     185759641
+    ]
+   }
+  },
+  {
+   "code": "US.ANT",
+   "ticker": "ANT",
+   "name": "Anthropic",
+   "close": 91.88,
+   "change_pct": 10.98,
+   "day_low": 84.51,
+   "day_high": 93.39,
+   "extended": "Pre 84.98 / AH 91.41",
+   "volume_ratio": 0.63,
+   "candle": "Wide-range breakout, closed near high",
+   "status": "watching",
+   "verdict": "watch",
+   "entry": 86.5,
+   "stop": 81.0,
+   "targets": [
+    {
+     "price": 94.24,
+     "rr": 1.4
+    },
+    {
+     "price": 97.17,
+     "rr": 1.9
+    }
+   ],
+   "shares": 45,
+   "levels": {
+    "support": [
+     85.92,
+     84.51,
+     83.0,
+     73.85
+    ],
+    "resistance": [
+     93.39,
+     94.24,
+     97.17,
+     115.1
+    ]
+   },
+   "plan": "Close > $85.92 met the trigger, but $91.88 is ~7% above the planned entry: don't chase. Buy only a pullback to $86\u201387 that holds with a green hourly close; stop $81 (below the $83 IPO price). Gap risk below $83.",
+   "note": "Claude is made by Anthropic; this call is based on price data only.",
+   "bars": {
+    "t": [
+     "2026-11-19",
+     "2026-11-20",
+     "2026-11-23",
+     "2026-11-24",
+     "2026-11-25",
+     "2026-11-27"
+    ],
+    "o": [
+     111.5,
+     89.86,
+     93.645,
+     83.4,
+     77.93,
+     84.99
+    ],
+    "h": [
+     115.1,
+     92.56,
+     94.24,
+     83.49,
+     85.92,
+     93.39
+    ],
+    "l": [
+     92.72,
+     83.05,
+     84.61,
+     75.61,
+     73.85,
+     84.51
+    ],
+    "c": [
+     97.17,
+     88.91,
+     87.64,
+     81.905,
+     82.79,
+     91.88
+    ],
+    "v": [
+     857312347,
+     400460284,
+     254101726,
+     313046176,
+     293740430,
+     143747654
+    ]
+   }
+  },
+  {
+   "code": "US.GRAB",
+   "ticker": "GRAB",
+   "name": "Grab Holdings",
+   "close": 2.87,
+   "change_pct": 1.06,
+   "day_low": 2.86,
+   "day_high": 2.98,
+   "extended": "Pre 2.91 / AH 2.87",
+   "volume_ratio": 1.24,
+   "candle": "Upper-wick rejection at $2.98",
+   "status": "triggered",
+   "verdict": "hold",
+   "entry": 2.78,
+   "stop": 2.68,
+   "targets": [
+    {
+     "price": 3.14,
+     "rr": 2.6
+    },
+    {
+     "price": 3.48,
+     "rr": 5.0
+    }
+   ],
+   "shares": 1785,
+   "levels": {
+    "support": [
+     2.86,
+     2.8,
+     2.67
+    ],
+    "resistance": [
+     2.93,
+     2.98,
+     3.14,
+     3.48
+    ]
+   },
+   "plan": "Hold. Session held above $2.80, so the stop rises to $2.68. Sellers at $2.93\u20133.00; a close above $2.98 is the next sign of strength.",
+   "bars": {
+    "t": [
+     "2026-11-13",
+     "2026-11-16",
+     "2026-11-17",
+     "2026-11-18",
+     "2026-11-19",
+     "2026-11-20",
+     "2026-11-23",
+     "2026-11-24",
+     "2026-11-25",
+     "2026-11-27"
+    ],
+    "o": [
+     3.23,
+     3.195,
+     3.21,
+     3.175,
+     3.15,
+     2.882,
+     2.87,
+     2.77,
+     2.73,
+     2.9
+    ],
+    "h": [
+     3.28,
+     3.27,
+     3.24,
+     3.22,
+     3.1554,
+     2.89,
+     2.87,
+     2.868,
+     2.88,
+     2.98
+    ],
+    "l": [
+     3.2,
+     3.18,
+     3.15,
+     3.12,
+     2.915,
+     2.74,
+     2.78,
+     2.73,
+     2.6934,
+     2.86
+    ],
+    "c": [
+     3.24,
+     3.21,
+     3.18,
+     3.14,
+     2.93,
+     2.75,
+     2.81,
+     2.77,
+     2.84,
+     2.87
+    ],
+    "v": [
+     60927977,
+     65912320,
+     103171950,
+     94184897,
+     101480030,
+     124551006,
+     71214251,
+     66139441,
+     110285468,
+     66911411
+    ]
+   }
+  }
+ ],
+ "events": [
+  {
+   "date": "2026-12-01",
+   "text": "Huang House testimony (NVDA event risk)"
+  },
+  {
+   "date": "2026-12-04",
+   "text": "ANT joins Hang Seng HK-US Tech index"
+  },
+  {
+   "date": "2026-12-15",
+   "text": "ANT insider unlock: up to 303M shares (per prospectus, news reports)"
+  },
+  {
+   "date": "2026-12",
+   "text": "Possible ANT inclusion in Nasdaq-100 / Russell 1000"
+  }
+ ],
+ "news": [
+  "S&P 500 +1.6% to 7,297 on Fri, best week since Apr 2025; NVDA lagged at +0.8%.",
+  "ANT back above its $83 IPO price, highest close since listing.",
+  "GRAB: BofA cut target to $4.20 (Buy); Toyota exited its stake; CEO sold 800k shares under a 10b5-1 plan."
+ ],
+ "log": [
+  {
+   "date": "2026-11-24",
+   "text": "ANT long stopped out at $82.50."
+  },
+  {
+   "date": "2026-11-25",
+   "text": "GRAB long opened ~$2.78, 1,785 sh, stop $2.64."
+  },
+  {
+   "date": "2026-11-27",
+   "text": "GRAB stop raised to $2.68 (session held above $2.80). ANT trigger met, no entry (extended)."
+  }
+ ]
+}

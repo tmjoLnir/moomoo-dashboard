@@ -24,8 +24,26 @@
 
   <main class="wrap">
     <div id="banner" class="banner" hidden></div>
+
+    <section id="trades" class="panel trades" aria-labelledby="trades-h" hidden>
+      <div class="trades-head">
+        <h2 id="trades-h">My swing trades</h2>
+        <p class="meta" id="trades-meta"></p>
+      </div>
+      <div id="trades-banner" class="banner" hidden></div>
+      <div class="tbl-scroll"><table class="cmp" id="trades-cmp"></table></div>
+      <div id="trades-cards" class="tcards"></div>
+      <div class="tcols">
+        <div><h3>Upcoming events</h3><ul id="trades-events" class="tlist"></ul></div>
+        <div><h3>News</h3><ul id="trades-news" class="tlist"></ul></div>
+        <div><h3>Trade log</h3><ul id="trades-log" class="tlist"></ul></div>
+      </div>
+      <p class="muted small" id="trades-note"></p>
+    </section>
+
     <div id="regime" class="regime" hidden></div>
 
+    <h2 class="sec-h" id="rank-h">Top 5 ranking</h2>
     <section aria-label="Ranking summary">
       <ol id="ranking" class="ranking"></ol>
     </section>
@@ -57,7 +75,7 @@
   </main>
 
   <footer class="wrap foot">
-    <p>Data: moomoo, via a Claude task using the moomoo MCP connector (refreshed on demand and weekly). Not investment advice. Data can be delayed or wrong; verify in your broker before trading.</p>
+    <p>Data: moomoo, via a Claude task using the moomoo MCP connector (refreshed on demand and Tue–Sat). Not investment advice. Data can be delayed or wrong; verify in your broker before trading.</p>
     <p>Charts by <a href="https://www.tradingview.com/" target="_blank" rel="noopener">TradingView Lightweight Charts™</a>. Hosted free on GitHub Pages.</p>
   </footer>
 
@@ -104,5 +122,6 @@
 
   <script src="assets/vendor/lightweight-charts.standalone.production.js"></script>
   <script src="assets/app.js"></script>
+  <script src="assets/trades.js"></script>
 </body>
 </html>
